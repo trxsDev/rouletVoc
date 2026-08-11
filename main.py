@@ -434,6 +434,11 @@ class GestureMemoryGame:
         self.pinch_dist = 999.0
         self._last_timestamp_ms = -1
         
+        # Active Player Hand Lock-On Engine
+        self.locked_hand_pos = None
+        self.locked_palm_size = 0.0
+        self.last_player_seen_time = 0.0
+        
         # Exhaustive Shuffled Decks (100% Vocabulary & Gesture Coverage)
         self.unplayed_vocab_deck = []
         self.unplayed_gesture_deck = []
@@ -461,12 +466,12 @@ class GestureMemoryGame:
             options = vision.HandLandmarkerOptions(
                 base_options=base_options,
                 running_mode=vision.RunningMode.VIDEO,
-                num_hands=1,
+                num_hands=4,  # Detect all hands in frame to filter out background bystanders
                 min_hand_detection_confidence=0.5,
                 min_tracking_confidence=0.5
             )
             self.detector = vision.HandLandmarker.create_from_options(options)
-            print("[CTO Engine] MediaPipe Tasks HandLandmarker initialized successfully!")
+            print("[CTO Engine] MediaPipe Tasks HandLandmarker (Multi-Hand Lock-On) initialized successfully!")
         except Exception as e:
             print("[CTO Engine] HandLandmarker init error:", e)
 
@@ -672,24 +677,61 @@ class GestureMemoryGame:
                 result = self.detector.detect_for_video(mp_image, timestamp_ms)
                 
                 if result and result.hand_landmarks and len(result.hand_landmarks) > 0:
-                    lm = result.hand_landmarks[0]
-                    self.hand_landmarks_screen = [(int(p.x * WIDTH), int(p.y * HEIGHT)) for p in lm]
+                    best_lm = None
+                    best_score = 999999.0
+                    now = time.time()
+                    has_recent_lock = (self.locked_hand_pos is not None) and ((now - self.last_player_seen_time) < 1.0)
                     
-                    index_tip = lm[8]
-                    thumb_tip = lm[4]
-                    
-                    if self.is_pinched:
-                        target_x = int(((index_tip.x + thumb_tip.x) / 2) * WIDTH)
-                        target_y = int(((index_tip.y + thumb_tip.y) / 2) * HEIGHT)
-                    else:
-                        target_x = int(index_tip.x * WIDTH)
-                        target_y = int(index_tip.y * HEIGHT)
-                    
-                    self.cursor_pos[0] += (target_x - self.cursor_pos[0]) * 0.65
-                    self.cursor_pos[1] += (target_y - self.cursor_pos[1]) * 0.65
-                    
-                    self.current_detected_gesture = self.classify_hand_gesture(lm)
-                    hand_detected = True
+                    for candidate_lm in result.hand_landmarks:
+                        wrist = candidate_lm[0]
+                        mid_mcp = candidate_lm[9]
+                        cx = int(wrist.x * WIDTH)
+                        cy = int(wrist.y * HEIGHT)
+                        palm_size = math.hypot((wrist.x - mid_mcp.x) * WIDTH, (wrist.y - mid_mcp.y) * HEIGHT)
+                        
+                        # Discard tiny/distant background bystander hands
+                        if palm_size < 35.0:
+                            continue
+                            
+                        if has_recent_lock:
+                            # Track existing player: Minimum distance to previous track + size consistency
+                            dist_to_prev = math.hypot(cx - self.locked_hand_pos[0], cy - self.locked_hand_pos[1])
+                            scale_diff = abs(palm_size - self.locked_palm_size)
+                            score = dist_to_prev + scale_diff * 1.5 - (palm_size * 0.4)
+                        else:
+                            # Lock on to new player: Largest foreground palm size + closest to center
+                            dist_center = math.hypot(cx - WIDTH // 2, cy - HEIGHT // 2)
+                            score = dist_center * 0.3 - (palm_size * 2.0)
+                            
+                        if score < best_score:
+                            best_score = score
+                            best_lm = candidate_lm
+                            
+                    if best_lm is not None:
+                        lm = best_lm
+                        self.hand_landmarks_screen = [(int(p.x * WIDTH), int(p.y * HEIGHT)) for p in lm]
+                        
+                        wrist = lm[0]
+                        mid_mcp = lm[9]
+                        self.locked_hand_pos = (int(wrist.x * WIDTH), int(wrist.y * HEIGHT))
+                        self.locked_palm_size = math.hypot((wrist.x - mid_mcp.x) * WIDTH, (wrist.y - mid_mcp.y) * HEIGHT)
+                        self.last_player_seen_time = time.time()
+                        
+                        index_tip = lm[8]
+                        thumb_tip = lm[4]
+                        
+                        if self.is_pinched:
+                            target_x = int(((index_tip.x + thumb_tip.x) / 2) * WIDTH)
+                            target_y = int(((index_tip.y + thumb_tip.y) / 2) * HEIGHT)
+                        else:
+                            target_x = int(index_tip.x * WIDTH)
+                            target_y = int(index_tip.y * HEIGHT)
+                        
+                        self.cursor_pos[0] += (target_x - self.cursor_pos[0]) * 0.65
+                        self.cursor_pos[1] += (target_y - self.cursor_pos[1]) * 0.65
+                        
+                        self.current_detected_gesture = self.classify_hand_gesture(lm)
+                        hand_detected = True
             except Exception:
                 pass
 
@@ -789,10 +831,12 @@ class GestureMemoryGame:
                         self.current_team_idx += 1
                         if self.current_team_idx < self.num_teams:
                             self.team_ready_charge = 0.0
+                            self.locked_hand_pos = None
                             self.state = "TEAM_READY"
                             self.state_timer = now
                         else:
                             sound_engine.play("podium_fanfare")
+                            self.locked_hand_pos = None
                             self.state = "PODIUM_DASHBOARD"
                             self.state_timer = now
 
