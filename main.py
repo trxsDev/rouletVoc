@@ -597,18 +597,23 @@ class GestureMemoryGame:
         self.hand_landmarks_screen = []
         
         if not self.cap or not self.cap.isOpened():
-            mx, my = pygame.mouse.get_pos()
-            self.cursor_pos = [mx, my]
-            if pygame.mouse.get_pressed()[0]:
-                self.current_detected_gesture = "OK" if self.state == "TEAM_READY" else self.selected_gesture["id"]
+            # If camera is missing and in menu, allow mouse for UI navigation only
+            if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
+                mx, my = pygame.mouse.get_pos()
+                self.cursor_pos = [mx, my]
             else:
+                self.cursor_pos = [-1000, -1000]
                 self.current_detected_gesture = "NONE"
             return None
 
         ret, frame = self.cap.read()
         if not ret:
-            mx, my = pygame.mouse.get_pos()
-            self.cursor_pos = [mx, my]
+            if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
+                mx, my = pygame.mouse.get_pos()
+                self.cursor_pos = [mx, my]
+            else:
+                self.cursor_pos = [-1000, -1000]
+                self.current_detected_gesture = "NONE"
             return None
 
         frame = cv2.flip(frame, 1)
@@ -648,12 +653,15 @@ class GestureMemoryGame:
                 pass
 
         if not hand_detected:
-            mx, my = pygame.mouse.get_pos()
-            if pygame.mouse.get_focused():
-                self.cursor_pos[0] += (mx - self.cursor_pos[0]) * 0.5
-                self.cursor_pos[1] += (my - self.cursor_pos[1]) * 0.5
-                if pygame.mouse.get_pressed()[0]:
-                    self.current_detected_gesture = "OK" if self.state == "TEAM_READY" else self.selected_gesture["id"]
+            # When playing, mouse has zero effect - only camera hand tracking controls the game
+            if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
+                mx, my = pygame.mouse.get_pos()
+                if pygame.mouse.get_focused():
+                    self.cursor_pos[0] += (mx - self.cursor_pos[0]) * 0.5
+                    self.cursor_pos[1] += (my - self.cursor_pos[1]) * 0.5
+            else:
+                self.cursor_pos = [-1000, -1000]
+                self.current_detected_gesture = "NONE"
 
         bg_cam = cv2.resize(rgb_frame, (WIDTH, HEIGHT))
         return bg_cam
@@ -1252,6 +1260,9 @@ class GestureMemoryGame:
         self.draw_hand_skeleton()
         
         cx, cy = int(self.cursor_pos[0]), int(self.cursor_pos[1])
+        if cx < 0 or cy < 0 or cx > WIDTH or cy > HEIGHT:
+            return
+            
         cursor_col = ACCENT_AMBER if self.is_pinched else (ACCENT_EMERALD if self.current_detected_gesture == "OK" else ACCENT_CYAN)
         
         pygame.draw.circle(screen, cursor_col, (cx, cy), 18, width=3)
