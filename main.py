@@ -461,6 +461,7 @@ class GestureMemoryGame:
         self.voice_recognized_text = ""
         self.voice_success = False
         self.voice_feedback_msg = ""
+        self.target_voice_played = False
         
         # Exhaustive Shuffled Decks (100% Vocabulary & Gesture Coverage)
         self.unplayed_vocab_deck = []
@@ -642,6 +643,7 @@ class GestureMemoryGame:
         self.state_timer = time.time()
         self.feedback_msg = ""
         self.chances_left = 3
+        self.target_voice_played = False
         
         # 1. Draw next target gesture from exhaustive bag
         target_gesture_idx = self.get_next_gesture_target()
@@ -714,11 +716,17 @@ class GestureMemoryGame:
         pnk_ext = is_extended(pinky_tip, pinky_pip, pinky_mcp)
         pnk_crl = is_curled(pinky_tip, pinky_pip, pinky_mcp)
 
-        self.pinch_dist = dist(thumb_tip, index_tip)
-        self.is_pinched = (self.pinch_dist < (0.24 * palm_size)) or (self.pinch_dist < 32.0)
+        # Finger tip distances
+        thumb_idx_dist = dist(thumb_tip, index_tip)
+        self.pinch_dist = thumb_idx_dist
+        self.is_pinched = (thumb_idx_dist < (0.28 * palm_size)) or (thumb_idx_dist < 36.0)
 
-        # 1. OK Gesture (👌)
-        if self.is_pinched and mid_ext and rng_ext and pnk_ext:
+        # 1. OK Gesture (👌) - Natural, high-tolerance detection
+        # Thumb and Index tip touching or near, while other fingers are open/unfolded
+        thumb_index_touch = (thumb_idx_dist < (0.42 * palm_size)) or (thumb_idx_dist < 56.0)
+        open_fingers_count = int(mid_ext or not mid_crl) + int(rng_ext or not rng_crl) + int(pnk_ext or not pnk_crl)
+        
+        if thumb_index_touch and (not mid_crl) and (open_fingers_count >= 2):
             return "OK"
 
         # 2. PINCH
@@ -731,11 +739,11 @@ class GestureMemoryGame:
 
         # 4. PEACE
         if idx_ext and mid_ext and rng_crl and pnk_crl:
-            if dist(index_tip, middle_tip) > palm_size * 0.20:
+            if dist(index_tip, middle_tip) > palm_size * 0.18:
                 return "PEACE"
 
         # 5. PALM
-        thumb_spread = dist(thumb_tip, index_mcp) > palm_size * 0.62
+        thumb_spread = dist(thumb_tip, index_mcp) > palm_size * 0.58
         if idx_ext and mid_ext and rng_ext and pnk_ext and thumb_spread:
             return "PALM"
 
@@ -875,12 +883,22 @@ class GestureMemoryGame:
             
             if not self.wheel.is_spinning and elapsed > 3.0:
                 sound_engine.play("wheel_win")
-                sound_engine.play_vocab(self.target_item["id"])
                 self.state = "ANNOUNCE"
                 self.state_timer = now
                 
         elif self.state == "ANNOUNCE":
-            if elapsed > 2.8:
+            if elapsed > 2.2:
+                self.state = "TARGET_FOCUS_READ"
+                self.state_timer = now
+                self.target_voice_played = False
+                
+        elif self.state == "TARGET_FOCUS_READ":
+            # Play English pronunciation aloud when the card is in full focus
+            if elapsed >= 0.8 and not self.target_voice_played:
+                sound_engine.play_vocab(self.target_item["id"])
+                self.target_voice_played = True
+                
+            if elapsed > 4.6:
                 self.state = "MEMORIZE"
                 self.state_timer = now
                 
@@ -1411,15 +1429,18 @@ class GestureMemoryGame:
             
         elif self.state == "ANNOUNCE":
             self.wheel.draw(screen)
-            banner = pygame.Surface((740, 130), pygame.SRCALPHA)
-            pygame.draw.rect(banner, (15, 23, 42, 245), (0, 0, 740, 130), border_radius=24)
-            pygame.draw.rect(banner, self.selected_gesture["color"], (0, 0, 740, 130), width=4, border_radius=24)
-            screen.blit(banner, (WIDTH // 2 - 370, HEIGHT - 150))
+            banner = pygame.Surface((740, 110), pygame.SRCALPHA)
+            pygame.draw.rect(banner, (15, 23, 42, 245), (0, 0, 740, 110), border_radius=24)
+            pygame.draw.rect(banner, self.selected_gesture["color"], (0, 0, 740, 110), width=4, border_radius=24)
+            screen.blit(banner, (WIDTH // 2 - 370, HEIGHT - 135))
             
             t1 = render_thai_text(f"ท่าที่ต้องใช้: {self.selected_gesture['emoji']} {self.selected_gesture['name']}", font_size=28, color=self.selected_gesture["color"])
-            t2 = render_thai_text(f"🔊 ฟังคำศัพท์: \"{self.target_item['en'].upper()}\" ({self.target_item['word']})", font_size=22, color=ACCENT_AMBER)
-            screen.blit(t1, t1.get_rect(center=(WIDTH // 2, HEIGHT - 115)))
-            screen.blit(t2, t2.get_rect(center=(WIDTH // 2, HEIGHT - 70)))
+            t2 = render_thai_text(self.selected_gesture["desc"], font_size=20, color=TEXT_WHITE)
+            screen.blit(t1, t1.get_rect(center=(WIDTH // 2, HEIGHT - 100)))
+            screen.blit(t2, t2.get_rect(center=(WIDTH // 2, HEIGHT - 60)))
+            
+        elif self.state == "TARGET_FOCUS_READ":
+            self.draw_target_focus_read()
             
         elif self.state == "MEMORIZE":
             t_banner = pygame.Surface((640, 80), pygame.SRCALPHA)
@@ -1485,6 +1506,79 @@ class GestureMemoryGame:
                 screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
         self.draw_cursor_and_skeleton()
+
+    def draw_target_focus_read(self):
+        elapsed = time.time() - self.state_timer
+        
+        # 1. Animation Timing:
+        # 0.0s - 1.0s: Zoom In (t: 0.0 -> 1.0)
+        # 1.0s - 3.8s: Full Focus & Slow Audio Playback (t: 1.0)
+        # 3.8s - 4.6s: Zoom Out back to grid (t: 1.0 -> 0.0)
+        if elapsed < 1.0:
+            p = elapsed / 1.0
+            t = math.sin(p * math.pi / 2)
+        elif elapsed < 3.8:
+            t = 1.0
+        else:
+            p = min(1.0, (elapsed - 3.8) / 0.8)
+            t = 1.0 - math.sin(p * math.pi / 2)
+            
+        target_card = next((c for c in self.cards if c.item["id"] == self.target_item["id"]), self.cards[0])
+        
+        # 2. Draw other 5 cards in their grid slots
+        for card in self.cards:
+            if card.item["id"] != self.target_item["id"]:
+                card.draw(screen, show_face=True)
+                
+        # 3. Cinematic Dim Vignette Layer
+        dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        dim.fill((15, 23, 42, int(t * 225)))
+        screen.blit(dim, (0, 0))
+        
+        # 4. Interpolate Target Card Rect (from grid slot to large center stage)
+        orig_r = target_card.rect
+        dest_w, dest_h = 420, 440
+        dest_x = (WIDTH - dest_w) // 2
+        dest_y = (HEIGHT - dest_h) // 2 - 15
+        
+        cur_x = int(orig_r.x + (dest_x - orig_r.x) * t)
+        cur_y = int(orig_r.y + (dest_y - orig_r.y) * t)
+        cur_w = int(orig_r.width + (dest_w - orig_r.width) * t)
+        cur_h = int(orig_r.height + (dest_h - orig_r.height) * t)
+        
+        # Draw expanding focus card
+        card_surf = pygame.Surface((cur_w, cur_h), pygame.SRCALPHA)
+        pygame.draw.rect(card_surf, (20, 30, 48, 252), (0, 0, cur_w, cur_h), border_radius=int(18 + t * 10))
+        border_col = ACCENT_AMBER
+        border_w = int(3 + t * 3)
+        pygame.draw.rect(card_surf, border_col, (0, 0, cur_w, cur_h), width=border_w, border_radius=int(18 + t * 10))
+        screen.blit(card_surf, (cur_x, cur_y))
+        
+        # Card inner art & labels
+        draw_rect = pygame.Rect(cur_x, cur_y, cur_w, cur_h)
+        art_size = int(105 + t * 75)
+        img_surf = get_image(self.target_item["filename"], target_size=(art_size, art_size))
+        img_rect = img_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery - int(26 + t * 45)))
+        screen.blit(img_surf, img_rect)
+        
+        # English Word (Large, slow, clear)
+        font_en_size = int(18 + t * 24)
+        en_text = f"🗣️ \"{self.target_item['en'].upper()}\"" if t > 0.3 else self.target_item["en"]
+        en_surf = render_thai_text(en_text, font_size=font_en_size, color=ACCENT_AMBER)
+        screen.blit(en_surf, en_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery + int(45 + t * 50))))
+        
+        # Thai Translation
+        font_th_size = int(22 + t * 6)
+        th_surf = render_thai_text(self.target_item["word"], font_size=font_th_size, color=self.target_item["color"])
+        screen.blit(th_surf, th_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery + int(70 + t * 60))))
+        
+        # Top Header & Bottom Subtitle
+        if t > 0.5:
+            header_surf = render_thai_text("🎯 คำศัพท์ประจำรอบที่ต้องค้นหา (Target Word)", font_size=28, color=ACCENT_AMBER)
+            screen.blit(header_surf, header_surf.get_rect(center=(WIDTH // 2, 70)))
+            
+            sub_surf = render_thai_text("🔊 ฟังเสียงอ่านภาษาอังกฤษให้ชัดเจน และจำภาพนี้ไว้ให้ดี!", font_size=22, color=TEXT_WHITE)
+            screen.blit(sub_surf, sub_surf.get_rect(center=(WIDTH // 2, HEIGHT - 65)))
 
     def draw_voice_verify(self):
         # 1. Background Cards
