@@ -632,24 +632,29 @@ class GestureMemoryGame:
     def process_hand_tracking(self):
         self.hand_landmarks_screen = []
         
+        # 1. Before game starts (Menu screens) -> Completely pause MediaPipe detection
+        if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
+            self.cursor_pos = [-1000, -1000]
+            self.current_detected_gesture = "NONE"
+            if not self.cap or not self.cap.isOpened():
+                return None
+            ret, frame = self.cap.read()
+            if not ret:
+                return None
+            frame = cv2.flip(frame, 1)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            return cv2.resize(rgb_frame, (WIDTH, HEIGHT))
+
+        # 2. In-Game -> Active 100% Camera Hand Tracking
         if not self.cap or not self.cap.isOpened():
-            # If camera is missing and in menu, allow mouse for UI navigation only
-            if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
-                mx, my = pygame.mouse.get_pos()
-                self.cursor_pos = [mx, my]
-            else:
-                self.cursor_pos = [-1000, -1000]
-                self.current_detected_gesture = "NONE"
+            self.cursor_pos = [-1000, -1000]
+            self.current_detected_gesture = "NONE"
             return None
 
         ret, frame = self.cap.read()
         if not ret:
-            if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
-                mx, my = pygame.mouse.get_pos()
-                self.cursor_pos = [mx, my]
-            else:
-                self.cursor_pos = [-1000, -1000]
-                self.current_detected_gesture = "NONE"
+            self.cursor_pos = [-1000, -1000]
+            self.current_detected_gesture = "NONE"
             return None
 
         frame = cv2.flip(frame, 1)
@@ -689,15 +694,8 @@ class GestureMemoryGame:
                 pass
 
         if not hand_detected:
-            # When playing, mouse has zero effect - only camera hand tracking controls the game
-            if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
-                mx, my = pygame.mouse.get_pos()
-                if pygame.mouse.get_focused():
-                    self.cursor_pos[0] += (mx - self.cursor_pos[0]) * 0.5
-                    self.cursor_pos[1] += (my - self.cursor_pos[1]) * 0.5
-            else:
-                self.cursor_pos = [-1000, -1000]
-                self.current_detected_gesture = "NONE"
+            self.cursor_pos = [-1000, -1000]
+            self.current_detected_gesture = "NONE"
 
         bg_cam = cv2.resize(rgb_frame, (WIDTH, HEIGHT))
         return bg_cam
@@ -1200,12 +1198,10 @@ class GestureMemoryGame:
         
         if self.state == "LANDING_MENU":
             self.draw_landing_menu()
-            self.draw_cursor_and_skeleton()
             return
             
         if self.state == "TEAM_SETUP":
             self.draw_team_setup()
-            self.draw_cursor_and_skeleton()
             return
             
         if self.state == "TEAM_READY":
@@ -1215,7 +1211,6 @@ class GestureMemoryGame:
             
         if self.state == "PODIUM_DASHBOARD":
             self.draw_podium_dashboard()
-            self.draw_cursor_and_skeleton()
             return
 
         # In-Game Clean HUD Header
