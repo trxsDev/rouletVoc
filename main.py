@@ -430,6 +430,10 @@ class GestureMemoryGame:
         self.pinch_dist = 999.0
         self._last_timestamp_ms = -1
         
+        # Exhaustive Shuffled Decks (100% Vocabulary & Gesture Coverage)
+        self.unplayed_vocab_deck = []
+        self.unplayed_gesture_deck = []
+        
         # MediaPipe Detector & Camera Setup
         self.detector = None
         self.cap = None
@@ -474,7 +478,26 @@ class GestureMemoryGame:
                 cap.release()
         print("[CTO Engine] Warning: No active webcam found. Mouse fallback active.")
 
+    def get_next_target_item(self):
+        """
+        Exhaustive Bag: Ensures 100% of all 12 vocabulary items are played
+        as targets before any word repeats.
+        """
+        if not self.unplayed_vocab_deck:
+            self.unplayed_vocab_deck = random.sample(ITEMS_POOL, len(ITEMS_POOL))
+        return self.unplayed_vocab_deck.pop(0)
+
+    def get_next_gesture_target(self):
+        """
+        Exhaustive Bag: Ensures all 4 gestures are evenly distributed across rounds.
+        """
+        if not self.unplayed_gesture_deck:
+            self.unplayed_gesture_deck = random.sample(list(range(len(GESTURE_MODES))), len(GESTURE_MODES))
+        return self.unplayed_gesture_deck.pop(0)
+
     def start_team_tournament(self):
+        self.unplayed_vocab_deck = []
+        self.unplayed_gesture_deck = []
         self.team_scores = []
         for i in range(self.num_teams):
             p = TEAM_PALETTES[i]
@@ -504,11 +527,20 @@ class GestureMemoryGame:
         self.feedback_msg = ""
         self.chances_left = 3
         
-        target_gesture_idx = random.randint(0, len(GESTURE_MODES) - 1)
+        # 1. Draw next target gesture from exhaustive bag
+        target_gesture_idx = self.get_next_gesture_target()
         self.wheel.spin_to_target(target_gesture_idx)
         
-        chosen_items = random.sample(ITEMS_POOL, 6)
-        self.target_item = random.choice(chosen_items)
+        # 2. Draw next target vocabulary from exhaustive bag (100% coverage)
+        self.target_item = self.get_next_target_item()
+        
+        # 3. Pick 5 distinct distractor items from remaining pool
+        distractors = [item for item in ITEMS_POOL if item["id"] != self.target_item["id"]]
+        chosen_distractors = random.sample(distractors, 5)
+        
+        # 4. Combine target + 5 distractors and shuffle board positions randomly
+        chosen_items = [self.target_item] + chosen_distractors
+        random.shuffle(chosen_items)
         
         self.cards = []
         card_w, card_h = 190, 205
