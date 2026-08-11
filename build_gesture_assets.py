@@ -120,6 +120,34 @@ draw.ellipse([cx - hub_r + 34, cy - hub_r + 34, cx + hub_r - 34, cy + hub_r - 34
 # Metallic shine highlight
 draw.ellipse([cx - 36, cy - 48, cx + 36, cy - 20], fill=(255, 255, 255, 180))
 
-wheel_path = os.path.join(ASSETS_DIR, "roulette_wheel.png")
-wheel_img.save(wheel_path, "PNG")
-print(f"[Roulette Asset] Generated 4-Sector HD Wheel with clean center dome (no text) -> {wheel_path}")
+# Generate OK gesture illustration icon (👌)
+def generate_ok_gesture_icon():
+    icon_size = 512
+    img = Image.new("RGBA", (icon_size, icon_size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    
+    # Palm Base / Wrist
+    draw.rounded_rectangle([190, 310, 330, 480], radius=40, fill=(245, 158, 11), outline=(217, 119, 6), width=10)
+    
+    # 3 Extended Fingers (Middle, Ring, Pinky) pointing upwards
+    # Middle Finger
+    draw.rounded_rectangle([270, 70, 330, 330], radius=30, fill=(251, 191, 36), outline=(217, 119, 6), width=10)
+    # Ring Finger
+    draw.rounded_rectangle([320, 110, 375, 340], radius=28, fill=(245, 158, 11), outline=(217, 119, 6), width=10)
+    # Pinky Finger
+    draw.rounded_rectangle([365, 170, 415, 350], radius=25, fill=(251, 191, 36), outline=(217, 119, 6), width=10)
+    
+    # Index Finger & Thumb making the iconic "O" circle on the left
+    # Thumb arc
+    draw.ellipse([90, 200, 240, 350], fill=(251, 191, 36), outline=(217, 119, 6), width=12)
+    # Index finger arc
+    draw.ellipse([150, 150, 290, 300], fill=(245, 158, 11), outline=(217, 119, 6), width=12)
+    # Inner circle cutout for the "O" hole
+    draw.ellipse([160, 210, 230, 280], fill=(255, 255, 255, 255), outline=(217, 119, 6), width=8)
+    
+    ok_path = os.path.join(ASSETS_DIR, "gesture_ok.png")
+    img.save(ok_path, "PNG")
+    print(f"[Asset] Generated {ok_path}")
+
+generate_ok_gesture_icon()
+

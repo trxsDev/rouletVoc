@@ -14,7 +14,7 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 # ---------------------------------------------------------
-# MediaPipe Task Configuration
+# MediaPipe Task Configuration & File Paths
 # ---------------------------------------------------------
 MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "hand_landmarker.task")
@@ -37,7 +37,10 @@ class SoundEngine:
             "wheel_win": 0.5,
             "correct": 0.3,
             "wrong": 0.3,
-            "lock": 0.2
+            "lock": 0.2,
+            "ok_ready": 0.5,
+            "ready_ping": 0.09,
+            "podium_fanfare": 1.0
         }
 
     def play(self, sound_name):
@@ -57,25 +60,41 @@ class SoundEngine:
 sound_engine = SoundEngine()
 
 # ---------------------------------------------------------
-# Pygame Setup & Color Palette (TRXS Dark Theme)
+# Pygame Setup & Color Palette (Kid-Friendly Vibrant Theme)
 # ---------------------------------------------------------
 pygame.display.init()
 
 WIDTH, HEIGHT = 1080, 720
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("TRXS Org - AR Gesture Roulette Memory Game")
+pygame.display.set_caption("RouletVoc • AR Hand Gesture Vocabulary Game")
 clock = pygame.time.Clock()
 
 BG_COLOR = (15, 23, 42)
 CARD_BACK_COLOR = (30, 41, 59, 235)
 CARD_BORDER = (51, 65, 85)
 TEXT_WHITE = (248, 250, 252)
+
+# Kid-friendly vibrant pastels & glows
 ACCENT_CYAN = (6, 182, 212)
+ACCENT_SKY = (56, 189, 248)
 ACCENT_EMERALD = (16, 185, 129)
+ACCENT_MINT = (52, 211, 153)
 ACCENT_AMBER = (245, 158, 11)
+ACCENT_SUNNY = (250, 204, 21)
 ACCENT_ROSE = (244, 63, 94)
+ACCENT_PINK = (244, 114, 182)
 ACCENT_PURPLE = (168, 85, 247)
+ACCENT_LAVENDER = (192, 132, 252)
 ACCENT_BLUE = (59, 130, 246)
+ACCENT_ORANGE = (251, 146, 60)
+
+# Team Color Palette (Up to 4 Teams)
+TEAM_PALETTES = [
+    {"name": "Team Red", "thai": "ทีมสีแดง 🔴", "color": (239, 68, 68), "bg_col": (127, 29, 29), "emoji": "🦁"},
+    {"name": "Team Blue", "thai": "ทีมสีน้ำเงิน 🔵", "color": (59, 130, 246), "bg_col": (30, 58, 138), "emoji": "🐬"},
+    {"name": "Team Green", "thai": "ทีมสีเขียว 🟢", "color": (16, 185, 129), "bg_col": (6, 78, 59), "emoji": "🦖"},
+    {"name": "Team Yellow", "thai": "ทีมสีเหลือง 🟡", "color": (245, 158, 11), "bg_col": (120, 53, 15), "emoji": "🐯"}
+]
 
 # ---------------------------------------------------------
 # MediaPipe Hand Connections (21 Landmarks Skeleton)
@@ -90,7 +109,7 @@ HAND_CONNECTIONS = [
 ]
 
 # ---------------------------------------------------------
-# 4 Active Gesture Modes (Point/Dwell removed per user request)
+# 4 Active Gesture Modes for Roulette
 # ---------------------------------------------------------
 GESTURE_MODES = [
     {
@@ -132,7 +151,7 @@ GESTURE_MODES = [
 ]
 
 # ---------------------------------------------------------
-# 12 School Classroom Vocabulary Items (From Reference Image)
+# 12 School Classroom Vocabulary Items
 # ---------------------------------------------------------
 ITEMS_POOL = [
     {"id": "book", "word": "หนังสือ", "en": "Book", "filename": "book.png", "color": (56, 189, 248)},
@@ -241,7 +260,6 @@ class Card:
         bg_col = (20, 30, 48, 235)
         
         if self.action_charge > 0.05:
-            # Active Gesture Lock-on Glowing border
             border_color = (
                 int(ACCENT_AMBER[0] + (ACCENT_EMERALD[0] - ACCENT_AMBER[0]) * self.action_charge),
                 int(ACCENT_AMBER[1] + (ACCENT_EMERALD[1] - ACCENT_AMBER[1]) * self.action_charge),
@@ -283,7 +301,6 @@ class Card:
             pattern_surf = render_thai_text("?", font_size=52, color=(100, 116, 139))
             surface.blit(pattern_surf, pattern_surf.get_rect(center=draw_rect.center))
             
-            # Action Lock-on Charging Bar
             if self.action_charge > 0.05:
                 bar_w = int(draw_rect.width * 0.85 * self.action_charge)
                 bar_rect = pygame.Rect(draw_rect.x + int(draw_rect.width * 0.075), draw_rect.bottom - 20, bar_w, 8)
@@ -295,34 +312,30 @@ class Card:
                 pygame.draw.rect(surface, ACCENT_CYAN, bar_rect, border_radius=3)
 
 # ---------------------------------------------------------
-# HD Roulette Wheel Animation Class (4-Sector Upright Gestures)
+# 4-Sector Master Roulette Wheel Component
 # ---------------------------------------------------------
 class RouletteWheel:
-    def __init__(self, cx, cy, radius=185):
+    def __init__(self, cx, cy, radius=180):
         self.cx = cx
         self.cy = cy
         self.radius = radius
-        self.diameter = radius * 2
         self.angle = 0.0
         self.speed = 0.0
-        self.target_idx = 0
+        self.deceleration = 0.0
         self.is_spinning = False
+        
+        self.num_wedges = len(GESTURE_MODES) # 4
+        self.wedge_angle_span = 360.0 / self.num_wedges
+        
         self.needle_deflection = 0.0
         self.last_passed_wedge = -1
         self.light_timer = 0
-        self.num_wedges = len(GESTURE_MODES) # 4
-        self.wedge_angle_span = 360.0 / self.num_wedges # 90 degrees
         
-        # Load high-definition 4-sector master wheel & pointer
-        self.base_wheel_surf = get_image("roulette_wheel.png", target_size=(self.diameter, self.diameter))
-        self.pointer_surf = get_image("wheel_pointer.png", target_size=(54, 82))
+        self.base_wheel_surf = get_image("roulette_wheel.png", target_size=(self.radius * 2, self.radius * 2))
+        self.pointer_surf = get_image("wheel_pointer.png", target_size=(68, 110))
 
     def spin_to_target(self, target_idx):
-        self.target_idx = target_idx
         self.is_spinning = True
-        
-        # Top needle is at 270° (-90°)
-        # Sector 0 is center at 45°, Sector 1 at 135°, Sector 2 at 225°, Sector 3 at 315°
         target_wedge_center = target_idx * self.wedge_angle_span + (self.wedge_angle_span / 2.0)
         target_final_angle = (270.0 - target_wedge_center) % 360.0
         
@@ -363,12 +376,10 @@ class RouletteWheel:
         return GESTURE_MODES[idx]
 
     def draw(self, surface):
-        # 1. Rotate & Draw 4-Sector HD Wheel
         rotated_wheel = pygame.transform.rotozoom(self.base_wheel_surf, -self.angle, 1.0)
         wheel_rect = rotated_wheel.get_rect(center=(self.cx, self.cy))
         surface.blit(rotated_wheel, wheel_rect)
 
-        # 2. Outer Lighting Bulbs
         num_bulbs = 24
         for b in range(num_bulbs):
             b_ang = math.radians(b * (360.0 / num_bulbs) + (self.light_timer * 3 if self.is_spinning else 0))
@@ -380,21 +391,32 @@ class RouletteWheel:
             if is_lit:
                 pygame.draw.circle(surface, (255, 255, 255), (int(bx), int(by)), 2)
 
-        # 3. 3D Needle Pointer
         rotated_pointer = pygame.transform.rotozoom(self.pointer_surf, self.needle_deflection, 1.0)
         p_rect = rotated_pointer.get_rect(center=(self.cx, self.cy - self.radius + 12))
         surface.blit(rotated_pointer, p_rect)
 
-
 # ---------------------------------------------------------
-# Main Game Engine
+# Master Game Engine with Freedom & Team Battle Modes
 # ---------------------------------------------------------
 class GestureMemoryGame:
     def __init__(self):
-        self.state = "START"
+        self.mode = "FREEDOM" # "FREEDOM" or "TEAM"
+        self.state = "LANDING_MENU" # LANDING_MENU, TEAM_SETUP, TEAM_READY, ROULETTE, ANNOUNCE, MEMORIZE, COUNTDOWN, PLAY, ROUND_END, PODIUM_DASHBOARD
+        
+        # Freedom Mode Metrics
+        self.freedom_score = 0
+        self.rounds_played = 0
+        
+        # Team Battle Configuration & Tournament State
+        self.num_teams = 2
+        self.words_per_team = 3
+        self.current_team_idx = 0
+        self.team_scores = [] # [{"name", "score", "time_spent", "words_done", "color", "emoji"}]
+        self.team_start_time = 0.0
+        self.team_ready_charge = 0.0
+        
+        # In-round state
         self.score = 0
-        self.round_num = 0
-        self.max_chances = 3
         self.chances_left = 3
         self.target_item = None
         self.cards = []
@@ -404,24 +426,35 @@ class GestureMemoryGame:
         self.feedback_msg = ""
         self.feedback_color = TEXT_WHITE
         
-        # Roulette Wheel Setup
+        # Roulette Wheel Component
         self.wheel = RouletteWheel(WIDTH // 2, HEIGHT // 2 + 10, radius=185)
         self.selected_gesture = GESTURE_MODES[0]
         
         # Cursor & Hand Tracking State
         self.cursor_pos = [WIDTH // 2, HEIGHT // 2]
         self.hand_landmarks_screen = []
-        self.current_detected_gesture = "POINT"
+        self.current_detected_gesture = "NONE"
         self.is_pinched = False
         self.pinch_dist = 999.0
         self._last_timestamp_ms = -1
         
+        # Decorative floating background bubbles for kid UI
+        self.bubbles = []
+        for _ in range(18):
+            self.bubbles.append({
+                "x": random.randint(20, WIDTH - 20),
+                "y": random.randint(20, HEIGHT - 20),
+                "r": random.randint(8, 28),
+                "speed": random.uniform(0.4, 1.2),
+                "color": random.choice([ACCENT_SKY, ACCENT_PINK, ACCENT_SUNNY, ACCENT_MINT, ACCENT_LAVENDER])
+            })
+            
         # MediaPipe Detector & Camera Setup
         self.detector = None
         self.cap = None
         self.setup_tracking_engine()
         self.setup_camera()
-        
+
     def setup_tracking_engine(self):
         if not os.path.exists(MODEL_PATH):
             print(f"[CTO Engine] Downloading MediaPipe model from {MODEL_URL}...")
@@ -447,40 +480,55 @@ class GestureMemoryGame:
             print("[CTO Engine] MediaPipe Tasks HandLandmarker initialized successfully!")
         except Exception as e:
             print("[CTO Engine] HandLandmarker init error:", e)
-            self.detector = None
-        
+
     def setup_camera(self):
-        for cam_idx in [1, 0, 2]:
-            try:
-                cap = cv2.VideoCapture(cam_idx)
-                if cap.isOpened():
-                    ret, _ = cap.read()
-                    if ret:
-                        self.cap = cap
-                        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-                        print(f"[CTO Engine] Connected to camera index {cam_idx}")
-                        break
-                    cap.release()
-            except Exception:
-                pass
+        for idx in [1, 0, 2]:
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    self.cap = cap
+                    print(f"[CTO Engine] Connected to camera index {idx}")
+                    return
+                cap.release()
+        print("[CTO Engine] Warning: No active webcam found. Mouse fallback active.")
+
+    def start_team_tournament(self):
+        self.team_scores = []
+        for i in range(self.num_teams):
+            p = TEAM_PALETTES[i]
+            self.team_scores.append({
+                "id": i,
+                "name": p["name"],
+                "thai": p["thai"],
+                "color": p["color"],
+                "bg_col": p["bg_col"],
+                "emoji": p["emoji"],
+                "score": 0,
+                "words_done": 0,
+                "time_spent": 0.0
+            })
+        self.current_team_idx = 0
+        self.team_ready_charge = 0.0
+        self.state = "TEAM_READY"
+        self.state_timer = time.time()
+
+    def start_team_turn(self):
+        self.team_start_time = time.time()
+        self.start_new_round()
 
     def start_new_round(self):
-        self.round_num += 1
-        self.chances_left = self.max_chances
-        self.feedback_msg = ""
-        
-        # 1. Start Roulette Spin Animation
         self.state = "ROULETTE"
         self.state_timer = time.time()
+        self.feedback_msg = ""
+        self.chances_left = 3
+        
         target_gesture_idx = random.randint(0, len(GESTURE_MODES) - 1)
         self.wheel.spin_to_target(target_gesture_idx)
         
-        # 2. Pick 6 items from the 12 pool
         chosen_items = random.sample(ITEMS_POOL, 6)
         self.target_item = random.choice(chosen_items)
         
-        # 3. Layout 6 Cards in 2 rows x 3 columns
         self.cards = []
         card_w, card_h = 190, 205
         start_x = (WIDTH - (3 * card_w + 2 * 34)) // 2
@@ -496,33 +544,26 @@ class GestureMemoryGame:
 
     def classify_hand_gesture(self, landmarks):
         """
-        CTO Biometric Engine: Strict 3D Scale-Invariant Joint Extension and Curl Analysis.
-        Guarantees zero false positives from casual hand hovering.
+        CTO Biometric Engine: Scale-Invariant 3D Joint Extension & Curl Analysis.
+        Detects: PINCH, FIST, PEACE, PALM, OK, NONE.
         """
         wrist = landmarks[0]
-        thumb_cmc = landmarks[1]
-        thumb_mcp = landmarks[2]
-        thumb_ip = landmarks[3]
         thumb_tip = landmarks[4]
 
         index_mcp = landmarks[5]
         index_pip = landmarks[6]
-        index_dip = landmarks[7]
         index_tip = landmarks[8]
 
         middle_mcp = landmarks[9]
         middle_pip = landmarks[10]
-        middle_dip = landmarks[11]
         middle_tip = landmarks[12]
 
         ring_mcp = landmarks[13]
         ring_pip = landmarks[14]
-        ring_dip = landmarks[15]
         ring_tip = landmarks[16]
 
         pinky_mcp = landmarks[17]
         pinky_pip = landmarks[18]
-        pinky_dip = landmarks[19]
         pinky_tip = landmarks[20]
 
         def dist(p1, p2):
@@ -530,11 +571,9 @@ class GestureMemoryGame:
 
         palm_size = max(dist(wrist, middle_mcp), 45.0)
 
-        # Helper to verify clean finger extension
         def is_extended(tip, pip, mcp):
             return (dist(tip, wrist) > dist(pip, wrist) * 1.15) and (dist(tip, mcp) > palm_size * 0.78)
 
-        # Helper to verify finger curling
         def is_curled(tip, pip, mcp):
             return (dist(tip, wrist) < dist(pip, wrist) * 1.02) or (dist(tip, mcp) < palm_size * 0.58)
 
@@ -550,24 +589,27 @@ class GestureMemoryGame:
         pnk_ext = is_extended(pinky_tip, pinky_pip, pinky_mcp)
         pnk_crl = is_curled(pinky_tip, pinky_pip, pinky_mcp)
 
-        # Pinch detection (Thumb tip and Index tip touching closely)
         self.pinch_dist = dist(thumb_tip, index_tip)
         self.is_pinched = (self.pinch_dist < (0.24 * palm_size)) or (self.pinch_dist < 32.0)
 
-        # 1. PINCH: Strict pinch contact while middle is distinct
+        # 1. OK Gesture (👌): Thumb and Index pinching circle, Middle+Ring+Pinky extended
+        if self.is_pinched and mid_ext and rng_ext and pnk_ext:
+            return "OK"
+
+        # 2. PINCH: Thumb and Index touching, others curled or neutral
         if self.is_pinched:
             return "PINCH"
 
-        # 2. FIST: Strict fist where all 4 main fingers are tightly curled
+        # 3. FIST: All 4 main fingers curled tightly
         if idx_crl and mid_crl and rng_crl and pnk_crl:
             return "FIST"
 
-        # 3. PEACE: Strict V-sign where Index & Middle are extended and separated, while Ring & Pinky are curled
+        # 4. PEACE: Index & Middle extended with spread, Ring & Pinky curled
         if idx_ext and mid_ext and rng_crl and pnk_crl:
             if dist(index_tip, middle_tip) > palm_size * 0.20:
                 return "PEACE"
 
-        # 4. PALM: Strict open palm where all 4 fingers and thumb are fully extended and spread
+        # 5. PALM: All 5 fingers extended and spread
         thumb_spread = dist(thumb_tip, index_mcp) > palm_size * 0.62
         if idx_ext and mid_ext and rng_ext and pnk_ext and thumb_spread:
             return "PALM"
@@ -580,7 +622,10 @@ class GestureMemoryGame:
         if not self.cap or not self.cap.isOpened():
             mx, my = pygame.mouse.get_pos()
             self.cursor_pos = [mx, my]
-            self.current_detected_gesture = self.selected_gesture["id"] if pygame.mouse.get_pressed()[0] else "NONE"
+            if pygame.mouse.get_pressed()[0]:
+                self.current_detected_gesture = "OK" if self.state == "TEAM_READY" else self.selected_gesture["id"]
+            else:
+                self.current_detected_gesture = "NONE"
             return None
 
         ret, frame = self.cap.read()
@@ -631,7 +676,7 @@ class GestureMemoryGame:
                 self.cursor_pos[0] += (mx - self.cursor_pos[0]) * 0.5
                 self.cursor_pos[1] += (my - self.cursor_pos[1]) * 0.5
                 if pygame.mouse.get_pressed()[0]:
-                    self.current_detected_gesture = self.selected_gesture["id"]
+                    self.current_detected_gesture = "OK" if self.state == "TEAM_READY" else self.selected_gesture["id"]
 
         bg_cam = cv2.resize(rgb_frame, (WIDTH, HEIGHT))
         return bg_cam
@@ -640,9 +685,29 @@ class GestureMemoryGame:
         now = time.time()
         elapsed = now - self.state_timer
         
-        if self.state == "START":
-            if elapsed > 0.3:
-                self.start_new_round()
+        # Update decorative bubbles
+        for b in self.bubbles:
+            b["y"] -= b["speed"]
+            if b["y"] < -30:
+                b["y"] = HEIGHT + 30
+                b["x"] = random.randint(20, WIDTH - 20)
+                
+        if self.state == "LANDING_MENU":
+            pass
+            
+        elif self.state == "TEAM_SETUP":
+            pass
+            
+        elif self.state == "TEAM_READY":
+            # OK Gesture Ready Check (Hold OK for 0.4s to start team turn)
+            if self.current_detected_gesture == "OK":
+                self.team_ready_charge = min(1.0, self.team_ready_charge + 0.05)
+                sound_engine.play("ready_ping")
+                if self.team_ready_charge >= 1.0:
+                    sound_engine.play("ok_ready")
+                    self.start_team_turn()
+            else:
+                self.team_ready_charge = max(0.0, self.team_ready_charge - 0.08)
                 
         elif self.state == "ROULETTE":
             self.wheel.update()
@@ -686,7 +751,6 @@ class GestureMemoryGame:
                 if card.rect.colliderect(cursor_rect) and not card.is_matched and not card.is_flipped:
                     card.hover_progress = min(1.0, card.hover_progress + 0.08)
                     
-                    # Deliberate gesture confirmation buffer
                     if is_armed and (self.current_detected_gesture == req_gesture):
                         card.action_charge = min(1.0, card.action_charge + 0.09)
                         if card.action_charge >= 1.0:
@@ -701,14 +765,42 @@ class GestureMemoryGame:
                     
         elif self.state == "ROUND_END":
             if elapsed > 2.8:
-                self.start_new_round()
+                if self.mode == "FREEDOM":
+                    self.start_new_round()
+                else:
+                    # Team Tournament Progression
+                    team = self.team_scores[self.current_team_idx]
+                    team["words_done"] += 1
+                    team["time_spent"] += (now - self.team_start_time)
+                    
+                    if team["words_done"] < self.words_per_team:
+                        # Team continues next word
+                        self.start_team_turn()
+                    else:
+                        # Next team or Tournament complete
+                        self.current_team_idx += 1
+                        if self.current_team_idx < self.num_teams:
+                            self.team_ready_charge = 0.0
+                            self.state = "TEAM_READY"
+                            self.state_timer = now
+                        else:
+                            # All teams finished -> Show Podium Dashboard!
+                            sound_engine.play("podium_fanfare")
+                            self.state = "PODIUM_DASHBOARD"
+                            self.state_timer = now
 
     def handle_card_guess(self, card):
         card.is_flipped = True
         if card.item["id"] == self.target_item["id"]:
             card.is_matched = True
-            self.score += 100
             sound_engine.play("correct")
+            if self.mode == "FREEDOM":
+                self.freedom_score += 100
+                self.score = self.freedom_score
+            else:
+                self.team_scores[self.current_team_idx]["score"] += 100
+                self.score = self.team_scores[self.current_team_idx]["score"]
+                
             self.feedback_msg = f"🎉 ท่าทางถูกต้อง + เลือกถูกการ์ด! (+100 คะแนน)"
             self.feedback_color = ACCENT_EMERALD
             self.state = "ROUND_END"
@@ -735,250 +827,535 @@ class GestureMemoryGame:
         for p1_idx, p2_idx in HAND_CONNECTIONS:
             p1 = self.hand_landmarks_screen[p1_idx]
             p2 = self.hand_landmarks_screen[p2_idx]
-            pygame.draw.line(screen, ACCENT_CYAN, p1, p2, 4)
+            pygame.draw.line(screen, ACCENT_SKY, p1, p2, 4)
             pygame.draw.line(screen, (224, 242, 254), p1, p2, 2)
             
         thumb_pt = self.hand_landmarks_screen[4]
         index_pt = self.hand_landmarks_screen[8]
+        
         if self.is_pinched:
-            pygame.draw.line(screen, ACCENT_EMERALD, thumb_pt, index_pt, 4)
+            pygame.draw.line(screen, ACCENT_AMBER, thumb_pt, index_pt, 6)
             mid_x = (thumb_pt[0] + index_pt[0]) // 2
             mid_y = (thumb_pt[1] + index_pt[1]) // 2
-            pygame.draw.circle(screen, ACCENT_EMERALD, (mid_x, mid_y), 10, width=3)
-            pygame.draw.circle(screen, (255, 255, 255), (mid_x, mid_y), 4)
-        else:
-            pygame.draw.line(screen, (100, 116, 139), thumb_pt, index_pt, 1)
+            pygame.draw.circle(screen, ACCENT_AMBER, (mid_x, mid_y), 16)
+            pygame.draw.circle(screen, (255, 255, 255), (mid_x, mid_y), 9)
 
-        for idx, pt in enumerate(self.hand_landmarks_screen):
-            if idx in [4, 8, 12, 16, 20]:
-                tip_col = ACCENT_EMERALD if self.is_pinched and idx in [4, 8] else ACCENT_AMBER
-                pygame.draw.circle(screen, tip_col, pt, 8)
-                pygame.draw.circle(screen, (255, 255, 255), pt, 4)
-            elif idx == 0:
-                pygame.draw.circle(screen, ACCENT_PURPLE, pt, 7)
-                pygame.draw.circle(screen, (255, 255, 255), pt, 3)
-            else:
-                pygame.draw.circle(screen, ACCENT_CYAN, pt, 5)
-                pygame.draw.circle(screen, (255, 255, 255), pt, 2)
+        for pt in self.hand_landmarks_screen:
+            pygame.draw.circle(screen, ACCENT_EMERALD, pt, 5)
+            pygame.draw.circle(screen, (255, 255, 255), pt, 2)
 
-    def draw_roulette_screen(self):
-        modal_rect = pygame.Rect(WIDTH // 2 - 400, HEIGHT // 2 - 285, 800, 570)
-        modal_surf = pygame.Surface((800, 570), pygame.SRCALPHA)
-        pygame.draw.rect(modal_surf, (15, 23, 42, 248), (0, 0, 800, 570), border_radius=28)
-        pygame.draw.rect(modal_surf, ACCENT_AMBER, (0, 0, 800, 570), width=3, border_radius=28)
-        screen.blit(modal_surf, modal_rect)
+    def draw_floating_bubbles(self):
+        for b in self.bubbles:
+            bubble_surf = pygame.Surface((b["r"] * 2, b["r"] * 2), pygame.SRCALPHA)
+            pygame.draw.circle(bubble_surf, (b["color"][0], b["color"][1], b["color"][2], 45), (b["r"], b["r"]), b["r"])
+            pygame.draw.circle(bubble_surf, (255, 255, 255, 90), (b["r"] - b["r"] // 3, b["r"] - b["r"] // 3), max(2, b["r"] // 3))
+            screen.blit(bubble_surf, (b["x"] - b["r"], b["y"] - b["r"]))
 
-        title = render_thai_text("🎰 สุ่มท่าทางประจำรอบ (Gesture Roulette)", font_size=28, color=ACCENT_AMBER)
-        screen.blit(title, title.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 245)))
-
-        self.wheel.draw(screen)
-
-        cur_gest = self.selected_gesture
-        if self.wheel.is_spinning:
-            status_surf = render_thai_text("⚡ กงล้อกำลังหมุนสุ่มท่าทาง...", font_size=22, color=ACCENT_CYAN)
-            screen.blit(status_surf, status_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 235)))
-        else:
-            res_box = pygame.Rect(WIDTH // 2 - 280, HEIGHT // 2 + 210, 560, 58)
-            pygame.draw.rect(screen, (30, 41, 59), res_box, border_radius=16)
-            pygame.draw.rect(screen, cur_gest["color"], res_box, width=3, border_radius=16)
-            
-            gest_icon = get_image(cur_gest["image_file"], target_size=(44, 44))
-            screen.blit(gest_icon, (res_box.x + 18, res_box.centery - 22))
-            
-            res_txt = render_thai_text(f"✅ ได้ท่า: {cur_gest['name']} ({cur_gest['desc']})", font_size=20, color=cur_gest["color"])
-            screen.blit(res_txt, (res_box.x + 72, res_box.centery - 14))
-
-    def draw_countdown_screen(self):
-        # Semi-transparent backdrop
+    def draw_landing_menu(self):
+        # Semi-transparent dark gradient overlay
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((15, 23, 42, 210))
+        overlay.fill((15, 23, 42, 230))
         screen.blit(overlay, (0, 0))
-
-        # Target item reminder banner at top
-        banner_rect = pygame.Rect(WIDTH // 2 - 220, 80, 440, 70)
-        pygame.draw.rect(screen, (30, 41, 59, 240), banner_rect, border_radius=18)
-        pygame.draw.rect(screen, ACCENT_AMBER, banner_rect, width=3, border_radius=18)
         
-        target_img = get_image(self.target_item["filename"], target_size=(52, 52))
-        screen.blit(target_img, (banner_rect.x + 18, banner_rect.centery - 26))
+        self.draw_floating_bubbles()
         
-        target_txt = render_thai_text(f"เป้าหมาย: {self.target_item['word']} ({self.target_item['en']})", font_size=24, color=ACCENT_AMBER)
-        screen.blit(target_txt, (banner_rect.x + 85, banner_rect.centery - 16))
-
-        # Big Pulsating Countdown Circle Center
-        now = time.time()
-        elapsed_in_second = (now - self.state_timer) % 1.0
-        pulse_scale = 1.0 + math.sin(elapsed_in_second * math.pi) * 0.15
+        # Bouncy Floating Logo Badge
+        pulse_offset = math.sin(time.time() * 2.5) * 6
         
-        cx, cy = WIDTH // 2, HEIGHT // 2 + 30
-        r = int(110 * pulse_scale)
+        title_surf = render_thai_text("🎡 RouletVoc", font_size=58, color=ACCENT_SUNNY)
+        title_rect = title_surf.get_rect(center=(WIDTH // 2, 130 + pulse_offset))
+        screen.blit(title_surf, title_rect)
         
-        # Outer Glowing Rings
-        pygame.draw.circle(screen, (6, 182, 212, 120), (cx, cy), r + 24, width=6)
-        pygame.draw.circle(screen, (15, 23, 42), (cx, cy), r)
-        pygame.draw.circle(screen, ACCENT_CYAN, (cx, cy), r, width=8)
-        pygame.draw.circle(screen, (224, 242, 254), (cx, cy), r - 10, width=3)
-
-        # Huge Animated Countdown Number (3, 2, 1)
-        cd_colors = {
-            3: ACCENT_CYAN,
-            2: ACCENT_AMBER,
-            1: ACCENT_EMERALD
-        }
-        num_col = cd_colors.get(self.countdown_num, ACCENT_CYAN)
+        sub_surf = render_thai_text("เกมจับคู่คำศัพท์ & ท่าทางมือ AR แสนสนุกสำหรับเด็ก ✨", font_size=24, color=ACCENT_SKY)
+        sub_rect = sub_surf.get_rect(center=(WIDTH // 2, 185 + pulse_offset))
+        screen.blit(sub_surf, sub_rect)
         
-        num_surf = render_thai_text(str(self.countdown_num), font_size=120, color=num_col)
-        screen.blit(num_surf, num_surf.get_rect(center=(cx, cy - 8)))
+        # Mode Cards
+        mouse_pos = pygame.mouse.get_pos()
+        card_w, card_h = 360, 320
+        gap = 50
+        
+        # 1. Freedom Mode Card
+        c1_x = (WIDTH - (2 * card_w + gap)) // 2
+        c1_y = 250
+        c1_rect = pygame.Rect(c1_x, c1_y, card_w, card_h)
+        c1_hover = c1_rect.collidepoint(mouse_pos)
+        
+        c1_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        c1_bg = (30, 58, 138, 245) if c1_hover else (17, 24, 39, 235)
+        c1_border = ACCENT_SKY if c1_hover else (51, 65, 85)
+        pygame.draw.rect(c1_surf, c1_bg, (0, 0, card_w, card_h), border_radius=28)
+        pygame.draw.rect(c1_surf, c1_border, (0, 0, card_w, card_h), width=4 if c1_hover else 2, border_radius=28)
+        screen.blit(c1_surf, (c1_x, c1_y))
+        
+        badge1 = render_thai_text("🌟 Freedom Mode", font_size=32, color=ACCENT_SKY)
+        screen.blit(badge1, badge1.get_rect(center=(c1_rect.centerx, c1_y + 60)))
+        
+        desc1_1 = render_thai_text("โหมดเล่นเดี่ยว ผจญภัยตามใจชอบ", font_size=20, color=(224, 242, 254))
+        desc1_2 = render_thai_text("สะสมคะแนนเรื่อยๆ ไม่มีกำหนดรอบ", font_size=18, color=(148, 163, 184))
+        screen.blit(desc1_1, desc1_1.get_rect(center=(c1_rect.centerx, c1_y + 130)))
+        screen.blit(desc1_2, desc1_2.get_rect(center=(c1_rect.centerx, c1_y + 165)))
+        
+        btn1_surf = pygame.Surface((240, 55), pygame.SRCALPHA)
+        pygame.draw.rect(btn1_surf, ACCENT_SKY, (0, 0, 240, 55), border_radius=28)
+        btn1_t = render_thai_text("🎮 เล่นคนเดียว", font_size=22, color=(15, 23, 42))
+        btn1_surf.blit(btn1_t, btn1_t.get_rect(center=(120, 27)))
+        screen.blit(btn1_surf, (c1_rect.centerx - 120, c1_y + 230))
+        
+        # 2. Team Battle Mode Card
+        c2_x = c1_x + card_w + gap
+        c2_y = 250
+        c2_rect = pygame.Rect(c2_x, c2_y, card_w, card_h)
+        c2_hover = c2_rect.collidepoint(mouse_pos)
+        
+        c2_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        c2_bg = (120, 53, 15, 245) if c2_hover else (17, 24, 39, 235)
+        c2_border = ACCENT_SUNNY if c2_hover else (51, 65, 85)
+        pygame.draw.rect(c2_surf, c2_bg, (0, 0, card_w, card_h), border_radius=28)
+        pygame.draw.rect(c2_surf, c2_border, (0, 0, card_w, card_h), width=4 if c2_hover else 2, border_radius=28)
+        screen.blit(c2_surf, (c2_x, c2_y))
+        
+        badge2 = render_thai_text("🏆 Team Battle", font_size=32, color=ACCENT_SUNNY)
+        screen.blit(badge2, badge2.get_rect(center=(c2_rect.centerx, c2_y + 60)))
+        
+        desc2_1 = render_thai_text("โหมดประลองความจำแบบทีม", font_size=20, color=(254, 240, 138))
+        desc2_2 = render_thai_text("สะสมแต้ม ชิงโพเดียม TOP 3!", font_size=18, color=(148, 163, 184))
+        screen.blit(desc2_1, desc2_1.get_rect(center=(c2_rect.centerx, c2_y + 130)))
+        screen.blit(desc2_2, desc2_2.get_rect(center=(c2_rect.centerx, c2_y + 165)))
+        
+        btn2_surf = pygame.Surface((240, 55), pygame.SRCALPHA)
+        pygame.draw.rect(btn2_surf, ACCENT_SUNNY, (0, 0, 240, 55), border_radius=28)
+        btn2_t = render_thai_text("⚔️ แข่งเป็นทีม", font_size=22, color=(15, 23, 42))
+        btn2_surf.blit(btn2_t, btn2_t.get_rect(center=(120, 27)))
+        screen.blit(btn2_surf, (c2_rect.centerx - 120, c2_y + 230))
 
-        # Subtitle Prompt Below Countdown
-        sub_surf = render_thai_text("🔥 ปิดการ์ดแล้ว! เตรียมค้นหาใน...", font_size=28, color=TEXT_WHITE)
-        screen.blit(sub_surf, sub_surf.get_rect(center=(cx, cy + r + 45)))
+        # Check clicks
+        if pygame.mouse.get_pressed()[0]:
+            if c1_hover:
+                self.mode = "FREEDOM"
+                self.freedom_score = 0
+                self.start_new_round()
+            elif c2_hover:
+                self.mode = "TEAM"
+                self.state = "TEAM_SETUP"
 
-    def draw(self, bg_cam_frame):
-        # 1. Background
-        if bg_cam_frame is not None:
-            cam_surf = pygame.image.frombuffer(bg_cam_frame.tobytes(), (WIDTH, HEIGHT), "RGB")
-            screen.blit(cam_surf, (0, 0))
+    def draw_team_setup(self):
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((15, 23, 42, 235))
+        screen.blit(overlay, (0, 0))
+        
+        self.draw_floating_bubbles()
+        
+        title_surf = render_thai_text("⚙️ ตั้งค่าการแข่งขันแบบทีม (Tournament Setup)", font_size=42, color=ACCENT_SUNNY)
+        screen.blit(title_surf, title_surf.get_rect(center=(WIDTH // 2, 90)))
+        
+        mouse_pos = pygame.mouse.get_pos()
+        clicked = pygame.mouse.get_pressed()[0]
+        
+        # 1. Number of Teams
+        lbl1 = render_thai_text("1. จำนวนทีมที่เข้าแข่งขัน:", font_size=26, color=TEXT_WHITE)
+        screen.blit(lbl1, (WIDTH // 2 - 320, 160))
+        
+        for i, count in enumerate([2, 3, 4]):
+            btn_rect = pygame.Rect(WIDTH // 2 - 120 + i * 110, 155, 95, 48)
+            is_active = (self.num_teams == count)
+            is_hover = btn_rect.collidepoint(mouse_pos)
             
-            dark_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            dark_overlay.fill((15, 23, 42, 175))
-            screen.blit(dark_overlay, (0, 0))
+            col = ACCENT_SKY if is_active else ((51, 65, 85) if not is_hover else (71, 85, 105))
+            text_col = (15, 23, 42) if is_active else TEXT_WHITE
+            
+            pygame.draw.rect(screen, col, btn_rect, border_radius=14)
+            if is_active:
+                pygame.draw.rect(screen, (255, 255, 255), btn_rect, width=2, border_radius=14)
+                
+            t_surf = render_thai_text(f"{count} ทีม", font_size=20, color=text_col)
+            screen.blit(t_surf, t_surf.get_rect(center=btn_rect.center))
+            
+            if clicked and is_hover:
+                self.num_teams = count
+                
+        # Team preview badges
+        for t in range(self.num_teams):
+            p = TEAM_PALETTES[t]
+            t_rect = pygame.Rect(WIDTH // 2 - 320 + t * 165, 225, 150, 60)
+            pygame.draw.rect(screen, p["color"], t_rect, border_radius=16)
+            p_surf = render_thai_text(f"{p['emoji']} {p['name']}", font_size=18, color=TEXT_WHITE)
+            screen.blit(p_surf, p_surf.get_rect(center=t_rect.center))
+            
+        # 2. Words per Team
+        lbl2 = render_thai_text("2. จำนวนคำศัพท์ต่อทีม:", font_size=26, color=TEXT_WHITE)
+        screen.blit(lbl2, (WIDTH // 2 - 320, 320))
+        
+        for i, count in enumerate([3, 5, 8]):
+            btn_rect = pygame.Rect(WIDTH // 2 - 120 + i * 110, 315, 95, 48)
+            is_active = (self.words_per_team == count)
+            is_hover = btn_rect.collidepoint(mouse_pos)
+            
+            col = ACCENT_SUNNY if is_active else ((51, 65, 85) if not is_hover else (71, 85, 105))
+            text_col = (15, 23, 42) if is_active else TEXT_WHITE
+            
+            pygame.draw.rect(screen, col, btn_rect, border_radius=14)
+            if is_active:
+                pygame.draw.rect(screen, (255, 255, 255), btn_rect, width=2, border_radius=14)
+                
+            t_surf = render_thai_text(f"{count} คำ", font_size=20, color=text_col)
+            screen.blit(t_surf, t_surf.get_rect(center=btn_rect.center))
+            
+            if clicked and is_hover:
+                self.words_per_team = count
+                
+        # Big Start Button
+        start_btn = pygame.Rect(WIDTH // 2 - 160, 440, 320, 70)
+        st_hover = start_btn.collidepoint(mouse_pos)
+        pygame.draw.rect(screen, ACCENT_EMERALD if st_hover else (5, 150, 105), start_btn, border_radius=35)
+        pygame.draw.rect(screen, (255, 255, 255), start_btn, width=3, border_radius=35)
+        st_surf = render_thai_text("🚀 เริ่มการแข่งขัน!", font_size=32, color=TEXT_WHITE)
+        screen.blit(st_surf, st_surf.get_rect(center=start_btn.center))
+        
+        # Back Button
+        back_btn = pygame.Rect(WIDTH // 2 - 100, 540, 200, 45)
+        bk_hover = back_btn.collidepoint(mouse_pos)
+        pygame.draw.rect(screen, (51, 65, 85) if not bk_hover else (71, 85, 105), back_btn, border_radius=22)
+        bk_surf = render_thai_text("🔙 กลับหน้าหลัก", font_size=20, color=TEXT_WHITE)
+        screen.blit(bk_surf, bk_surf.get_rect(center=back_btn.center))
+        
+        if clicked:
+            if st_hover:
+                self.start_team_tournament()
+            elif bk_hover:
+                self.state = "LANDING_MENU"
+
+    def draw_team_ready(self):
+        team = self.team_scores[self.current_team_idx]
+        
+        # Top Team Tag
+        tag_surf = pygame.Surface((WIDTH, 110), pygame.SRCALPHA)
+        tag_surf.fill((team["color"][0], team["color"][1], team["color"][2], 215))
+        screen.blit(tag_surf, (0, 0))
+        
+        t_text = render_thai_text(f"🏁 ถึงตา {team['emoji']} {team['name']} ({team['thai']}) แล้ว!", font_size=36, color=TEXT_WHITE)
+        screen.blit(t_text, t_text.get_rect(center=(WIDTH // 2, 55)))
+        
+        # Center Ready Card & OK Gesture Instruction
+        center_card = pygame.Rect(WIDTH // 2 - 280, HEIGHT // 2 - 170, 560, 360)
+        card_surf = pygame.Surface((560, 360), pygame.SRCALPHA)
+        pygame.draw.rect(card_surf, (15, 23, 42, 230), (0, 0, 560, 360), border_radius=32)
+        pygame.draw.rect(card_surf, team["color"], (0, 0, 560, 360), width=4, border_radius=32)
+        screen.blit(card_surf, center_card.topleft)
+        
+        ok_img = get_image("gesture_ok.png", target_size=(140, 140))
+        screen.blit(ok_img, ok_img.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 60)))
+        
+        r_text1 = render_thai_text("ยกมือทำท่า OK 👌 เพื่อยืนยันความพร้อม!", font_size=26, color=ACCENT_SUNNY)
+        r_text2 = render_thai_text(f"รอบนี้ต้องค้นหาทั้งหมด {self.words_per_team} คำ", font_size=20, color=(224, 242, 254))
+        screen.blit(r_text1, r_text1.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 50)))
+        screen.blit(r_text2, r_text2.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 88)))
+        
+        # Ready Progress Bar
+        bar_w = 420
+        bar_x = WIDTH // 2 - bar_w // 2
+        bar_y = HEIGHT // 2 + 130
+        pygame.draw.rect(screen, (51, 65, 85), (bar_x, bar_y, bar_w, 20), border_radius=10)
+        if self.team_ready_charge > 0:
+            fill_w = int(bar_w * self.team_ready_charge)
+            pygame.draw.rect(screen, ACCENT_EMERALD, (bar_x, bar_y, fill_w, 20), border_radius=10)
+            pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, fill_w, 20), width=2, border_radius=10)
+
+    def draw_podium_dashboard(self):
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((15, 23, 42, 240))
+        screen.blit(overlay, (0, 0))
+        
+        self.draw_floating_bubbles()
+        
+        title_surf = render_thai_text("🏆 สรุปผลการแข่งขัน (Tournament Champions)", font_size=42, color=ACCENT_SUNNY)
+        screen.blit(title_surf, title_surf.get_rect(center=(WIDTH // 2, 70)))
+        
+        # Sort teams by Score (Descending), then by Time Spent (Ascending)
+        ranked_teams = sorted(self.team_scores, key=lambda t: (-t["score"], t["time_spent"]))
+        
+        # 1. TOP 3 PODIUM (1st, 2nd, 3rd)
+        podium_cx = WIDTH // 2
+        podium_base_y = 390
+        
+        # Placement Positions: [Rank 2 (Left), Rank 1 (Center), Rank 3 (Right)]
+        slots = [
+            {"rank": 2, "idx": 1, "x": podium_cx - 190, "h": 140, "col": (148, 163, 184), "label": "🥈 2nd Place", "cup": "🥈"},
+            {"rank": 1, "idx": 0, "x": podium_cx, "h": 190, "col": (245, 158, 11), "label": "🥇 Champion!", "cup": "🥇"},
+            {"rank": 3, "idx": 2, "x": podium_cx + 190, "h": 100, "col": (180, 83, 9), "label": "🥉 3rd Place", "cup": "🥉"}
+        ]
+        
+        for slot in slots:
+            if slot["idx"] < len(ranked_teams):
+                team = ranked_teams[slot["idx"]]
+                sx = slot["x"]
+                pw = 155
+                ph = slot["h"]
+                py = podium_base_y - ph
+                
+                # Pillar
+                pygame.draw.rect(screen, slot["col"], (sx - pw // 2, py, pw, ph), border_radius=16)
+                pygame.draw.rect(screen, (255, 255, 255), (sx - pw // 2, py, pw, ph), width=3, border_radius=16)
+                
+                # Rank Label on Pillar
+                r_surf = render_thai_text(f"#{slot['rank']}", font_size=36, color=(15, 23, 42))
+                screen.blit(r_surf, r_surf.get_rect(center=(sx, py + 45)))
+                
+                # Team Info Above Pillar
+                cup_surf = render_thai_text(slot["cup"], font_size=38)
+                screen.blit(cup_surf, cup_surf.get_rect(center=(sx, py - 65)))
+                
+                tname_surf = render_thai_text(f"{team['emoji']} {team['name']}", font_size=20, color=team["color"])
+                screen.blit(tname_surf, tname_surf.get_rect(center=(sx, py - 32)))
+                
+                score_surf = render_thai_text(f"{team['score']} pts", font_size=20, color=TEXT_WHITE)
+                screen.blit(score_surf, score_surf.get_rect(center=(sx, py - 10)))
+                
+        # 2. Ranking Leaderboard Table
+        table_y = 435
+        header_surf = pygame.Surface((720, 36), pygame.SRCALPHA)
+        pygame.draw.rect(header_surf, (30, 41, 59, 230), (0, 0, 720, 36), border_radius=8)
+        screen.blit(header_surf, (WIDTH // 2 - 360, table_y))
+        
+        th1 = render_thai_text("อันดับ", font_size=16, color=ACCENT_SKY)
+        th2 = render_thai_text("ทีม", font_size=16, color=ACCENT_SKY)
+        th3 = render_thai_text("คะแนนสะสม", font_size=16, color=ACCENT_SKY)
+        th4 = render_thai_text("เวลาที่ใช้", font_size=16, color=ACCENT_SKY)
+        screen.blit(th1, (WIDTH // 2 - 330, table_y + 4))
+        screen.blit(th2, (WIDTH // 2 - 200, table_y + 4))
+        screen.blit(th3, (WIDTH // 2 + 40, table_y + 4))
+        screen.blit(th4, (WIDTH // 2 + 220, table_y + 4))
+        
+        for i, team in enumerate(ranked_teams):
+            row_y = table_y + 42 + i * 36
+            row_surf = pygame.Surface((720, 32), pygame.SRCALPHA)
+            bg = (245, 158, 11, 40) if i == 0 else (17, 24, 39, 180)
+            pygame.draw.rect(row_surf, bg, (0, 0, 720, 32), border_radius=6)
+            screen.blit(row_surf, (WIDTH // 2 - 360, row_y))
+            
+            r_label = f"#{i+1}" if i >= 3 else ["🥇 1st", "🥈 2nd", "🥉 3rd"][i]
+            td1 = render_thai_text(r_label, font_size=16, color=TEXT_WHITE)
+            td2 = render_thai_text(f"{team['emoji']} {team['name']}", font_size=16, color=team["color"])
+            td3 = render_thai_text(f"{team['score']} คะแนน", font_size=16, color=ACCENT_SUNNY)
+            td4 = render_thai_text(f"{team['time_spent']:.1f} วินาที", font_size=16, color=(148, 163, 184))
+            
+            screen.blit(td1, (WIDTH // 2 - 330, row_y + 2))
+            screen.blit(td2, (WIDTH // 2 - 200, row_y + 2))
+            screen.blit(td3, (WIDTH // 2 + 40, row_y + 2))
+            screen.blit(td4, (WIDTH // 2 + 220, row_y + 2))
+            
+        # Action Buttons (Play Again / Main Menu)
+        mouse_pos = pygame.mouse.get_pos()
+        clicked = pygame.mouse.get_pressed()[0]
+        
+        btn_replay = pygame.Rect(WIDTH // 2 - 210, HEIGHT - 75, 195, 52)
+        btn_menu = pygame.Rect(WIDTH // 2 + 15, HEIGHT - 75, 195, 52)
+        
+        rep_hover = btn_replay.collidepoint(mouse_pos)
+        men_hover = btn_menu.collidepoint(mouse_pos)
+        
+        pygame.draw.rect(screen, ACCENT_SUNNY if rep_hover else (217, 119, 6), btn_replay, border_radius=26)
+        pygame.draw.rect(screen, (255, 255, 255), btn_replay, width=2, border_radius=26)
+        t_rep = render_thai_text("🔄 แข่งอีกครั้ง", font_size=20, color=(15, 23, 42))
+        screen.blit(t_rep, t_rep.get_rect(center=btn_replay.center))
+        
+        pygame.draw.rect(screen, (51, 65, 85) if not men_hover else (71, 85, 105), btn_menu, border_radius=26)
+        pygame.draw.rect(screen, (255, 255, 255), btn_menu, width=2, border_radius=26)
+        t_men = render_thai_text("🏠 กลับหน้าหลัก", font_size=20, color=TEXT_WHITE)
+        screen.blit(t_men, t_men.get_rect(center=btn_menu.center))
+        
+        if clicked:
+            if rep_hover:
+                self.state = "TEAM_SETUP"
+            elif men_hover:
+                self.state = "LANDING_MENU"
+
+    def draw(self, bg_cam=None):
+        screen.fill(BG_COLOR)
+        
+        if bg_cam is not None:
+            surf_cam = pygame.surfarray.make_surface(np.transpose(bg_cam, (1, 0, 2)))
+            screen.blit(surf_cam, (0, 0))
+            
+        dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        dim.fill((15, 23, 42, 110))
+        screen.blit(dim, (0, 0))
+        
+        if self.state == "LANDING_MENU":
+            self.draw_landing_menu()
+            self.draw_cursor_and_skeleton()
+            return
+            
+        if self.state == "TEAM_SETUP":
+            self.draw_team_setup()
+            self.draw_cursor_and_skeleton()
+            return
+            
+        if self.state == "TEAM_READY":
+            self.draw_team_ready()
+            self.draw_cursor_and_skeleton()
+            return
+            
+        if self.state == "PODIUM_DASHBOARD":
+            self.draw_podium_dashboard()
+            self.draw_cursor_and_skeleton()
+            return
+
+        # Top In-Game HUD Header
+        hud_h = 74
+        header_surf = pygame.Surface((WIDTH, hud_h), pygame.SRCALPHA)
+        header_surf.fill((15, 23, 42, 235))
+        pygame.draw.line(header_surf, CARD_BORDER, (0, hud_h - 1), (WIDTH, hud_h - 1), 2)
+        screen.blit(header_surf, (0, 0))
+        
+        # Menu Exit Button (Top-Left)
+        menu_btn = pygame.Rect(18, 14, 110, 46)
+        m_hover = menu_btn.collidepoint(pygame.mouse.get_pos())
+        pygame.draw.rect(screen, (51, 65, 85) if not m_hover else (71, 85, 105), menu_btn, border_radius=20)
+        m_text = render_thai_text("🏠 เมนู", font_size=18, color=TEXT_WHITE)
+        screen.blit(m_text, m_text.get_rect(center=menu_btn.center))
+        if pygame.mouse.get_pressed()[0] and m_hover:
+            self.state = "LANDING_MENU"
+            return
+        
+        # Current Mode & Team Badge
+        if self.mode == "FREEDOM":
+            m_badge = render_thai_text("🌟 Freedom Mode", font_size=20, color=ACCENT_SKY)
+            screen.blit(m_badge, (140, 24))
+            
+            score_text = render_thai_text(f"⭐ คะแนน: {self.freedom_score}", font_size=24, color=ACCENT_SUNNY)
+            screen.blit(score_text, score_text.get_rect(midright=(WIDTH - 24, 37)))
         else:
-            screen.fill(BG_COLOR)
+            team = self.team_scores[self.current_team_idx]
+            m_badge = render_thai_text(f"{team['emoji']} {team['name']} • คำที่ {team['words_done'] + 1}/{self.words_per_team}", font_size=22, color=team["color"])
+            screen.blit(m_badge, (140, 24))
             
-        # 2. Hand Skeleton
-        self.draw_hand_skeleton()
+            score_text = render_thai_text(f"⭐ แต้มทีม: {team['score']}", font_size=24, color=ACCENT_SUNNY)
+            screen.blit(score_text, score_text.get_rect(midright=(WIDTH - 24, 37)))
+            
+        # Chances Display
+        chances_surf = render_thai_text(f"❤️ x {self.chances_left}", font_size=22, color=ACCENT_ROSE)
+        screen.blit(chances_surf, chances_surf.get_rect(center=(WIDTH // 2, 37)))
 
-        # 3. Header Banner
-        header_surf = pygame.Surface((WIDTH - 60, 56), pygame.SRCALPHA)
-        pygame.draw.rect(header_surf, (15, 23, 42, 230), (0, 0, WIDTH - 60, 56), border_radius=14)
-        pygame.draw.rect(header_surf, (51, 65, 85, 180), (0, 0, WIDTH - 60, 56), width=1, border_radius=14)
-        screen.blit(header_surf, (30, 16))
-
-        header_title = render_thai_text("TRXS Org • Gesture Roulette Game", font_size=21, color=ACCENT_CYAN)
-        screen.blit(header_title, (48, 28))
-        
-        gest_icon_header = get_image(self.selected_gesture["image_file"], target_size=(36, 36))
-        screen.blit(gest_icon_header, (410, 26))
-        
-        req_badge = render_thai_text(f"ท่าทางรอบนี้: {self.selected_gesture['name']}", font_size=19, color=self.selected_gesture["color"])
-        screen.blit(req_badge, (455, 28))
-
-        score_text = render_thai_text(f"คะแนน: {self.score}", font_size=21, color=ACCENT_AMBER)
-        screen.blit(score_text, (WIDTH - 290, 28))
-        
-        chances_hearts = "❤️ " * self.chances_left + "🖤 " * (self.max_chances - self.chances_left)
-        chance_text = render_thai_text(f"{chances_hearts}", font_size=18, color=TEXT_WHITE)
-        screen.blit(chance_text, (WIDTH - 145, 29))
-        
-        # 4. State Displays
+        # State Renderings
         if self.state == "ROULETTE":
-            self.draw_roulette_screen()
+            self.wheel.draw(screen)
+            r_tip = render_thai_text("กำลังสุ่มท่าทางที่ต้องใช้...", font_size=32, color=ACCENT_AMBER)
+            screen.blit(r_tip, r_tip.get_rect(center=(WIDTH // 2, HEIGHT - 55)))
             
         elif self.state == "ANNOUNCE":
-            title_surf = render_thai_text("🎯 จงจำตำแหน่งของคำว่า:", font_size=30, color=TEXT_WHITE)
-            screen.blit(title_surf, title_surf.get_rect(center=(WIDTH // 2, 90)))
+            self.wheel.draw(screen)
+            banner = pygame.Surface((700, 110), pygame.SRCALPHA)
+            pygame.draw.rect(banner, (15, 23, 42, 245), (0, 0, 700, 110), border_radius=24)
+            pygame.draw.rect(banner, self.selected_gesture["color"], (0, 0, 700, 110), width=4, border_radius=24)
+            screen.blit(banner, (WIDTH // 2 - 350, HEIGHT - 135))
             
-            target_badge = pygame.Rect(WIDTH // 2 - 220, 120, 440, 75)
-            pygame.draw.rect(screen, (30, 41, 59, 235), target_badge, border_radius=18)
-            pygame.draw.rect(screen, ACCENT_AMBER, target_badge, width=3, border_radius=18)
-            
-            target_img = get_image(self.target_item["filename"], target_size=(56, 56))
-            screen.blit(target_img, (target_badge.x + 20, target_badge.centery - 28))
-            
-            target_surf = render_thai_text(f"{self.target_item['word']} ({self.target_item['en']})", font_size=28, color=ACCENT_AMBER)
-            screen.blit(target_surf, (target_badge.x + 90, target_badge.centery - 18))
-            
-        elif self.state == "COUNTDOWN":
-            # Big Countdown Animation (Cards are hidden during 3, 2, 1 per user request)
-            self.draw_countdown_screen()
+            t1 = render_thai_text(f"ท่าที่ต้องใช้: {self.selected_gesture['emoji']} {self.selected_gesture['name']}", font_size=30, color=self.selected_gesture["color"])
+            t2 = render_thai_text(self.selected_gesture["desc"], font_size=20, color=TEXT_WHITE)
+            screen.blit(t1, t1.get_rect(center=(WIDTH // 2, HEIGHT - 100)))
+            screen.blit(t2, t2.get_rect(center=(WIDTH // 2, HEIGHT - 55)))
             
         elif self.state == "MEMORIZE":
-            mem_surf = render_thai_text("👀 จำตำแหน่งการ์ดทั้งหมด! (เปิดภาพ 3 วินาที)", font_size=32, color=ACCENT_EMERALD)
-            screen.blit(mem_surf, mem_surf.get_rect(center=(WIDTH // 2, 135)))
+            t_banner = pygame.Surface((640, 80), pygame.SRCALPHA)
+            pygame.draw.rect(t_banner, (15, 23, 42, 240), (0, 0, 640, 80), border_radius=20)
+            pygame.draw.rect(t_banner, ACCENT_SUNNY, (0, 0, 640, 80), width=3, border_radius=20)
+            screen.blit(t_banner, (WIDTH // 2 - 320, 100))
+            
+            w_text = render_thai_text(f"👀 จำตำแหน่งการ์ด! หาคำว่า: '{self.target_item['word']}' ({self.target_item['en']})", font_size=26, color=ACCENT_SUNNY)
+            screen.blit(w_text, w_text.get_rect(center=(WIDTH // 2, 140)))
+            
+            for card in self.cards:
+                card.draw(screen, show_face=True)
+                
+        elif self.state == "COUNTDOWN":
+            for card in self.cards:
+                card.draw(screen, show_face=False)
+                
+            cd_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            cd_overlay.fill((15, 23, 42, 160))
+            screen.blit(cd_overlay, (0, 0))
+            
+            pulse = 1.0 + (math.sin(time.time() * 12) * 0.15)
+            cd_size = int(120 * pulse)
+            cd_surf = render_thai_text(str(self.countdown_num), font_size=cd_size, color=ACCENT_SUNNY)
+            screen.blit(cd_surf, cd_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20)))
+            
+            sub_cd = render_thai_text("เตรียมพร้อม...", font_size=36, color=TEXT_WHITE)
+            screen.blit(sub_cd, sub_cd.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 90)))
             
         elif self.state == "PLAY":
-            prompt_box = pygame.Rect(WIDTH // 2 - 380, 80, 760, 60)
-            pygame.draw.rect(screen, (30, 41, 59, 230), prompt_box, border_radius=14)
-            pygame.draw.rect(screen, self.selected_gesture["color"], prompt_box, width=2, border_radius=14)
+            t_banner = pygame.Surface((680, 85), pygame.SRCALPHA)
+            pygame.draw.rect(t_banner, (15, 23, 42, 240), (0, 0, 680, 85), border_radius=20)
+            pygame.draw.rect(t_banner, ACCENT_CYAN, (0, 0, 680, 85), width=3, border_radius=20)
+            screen.blit(t_banner, (WIDTH // 2 - 340, 100))
             
-            gest_icon_play = get_image(self.selected_gesture["image_file"], target_size=(44, 44))
-            screen.blit(gest_icon_play, (prompt_box.x + 18, prompt_box.centery - 22))
+            target_surf = render_thai_text(f"🎯 จงหา: '{self.target_item['word']}' ({self.target_item['en']})", font_size=26, color=ACCENT_SUNNY)
+            screen.blit(target_surf, target_surf.get_rect(center=(WIDTH // 2, 126)))
             
-            prompt_surf = render_thai_text(
-                f"🎯 หา '{self.target_item['word']}'  |  ทำท่า 👉 {self.selected_gesture['name']}",
-                font_size=24,
-                color=self.selected_gesture["color"]
-            )
-            screen.blit(prompt_surf, (prompt_box.x + 72, prompt_box.centery - 16))
+            inst_surf = render_thai_text(f"ใช้ท่า: {self.selected_gesture['emoji']} {self.selected_gesture['name']} ค้างบนการ์ดเพื่อเปิด", font_size=18, color=self.selected_gesture["color"])
+            screen.blit(inst_surf, inst_surf.get_rect(center=(WIDTH // 2, 158)))
             
-            is_match = (self.current_detected_gesture == self.selected_gesture["id"])
-            match_col = ACCENT_EMERALD if is_match else (148, 163, 184)
-            status_symbol = "✅ ท่าทางถูกต้อง!" if is_match else "⌛ กำลังรอท่าทาง..."
-            live_gest_txt = f"ท่าที่ตรวจจับได้: {self.current_detected_gesture} ({status_symbol})"
-            cur_surf = render_thai_text(live_gest_txt, font_size=19, color=match_col)
-            screen.blit(cur_surf, cur_surf.get_rect(center=(WIDTH // 2, 160)))
-            
+            for card in self.cards:
+                card.draw(screen, show_face=False)
+                
             if self.feedback_msg:
-                fb_surf = render_thai_text(self.feedback_msg, font_size=22, color=self.feedback_color)
-                screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, 195)))
+                fb_surf = render_thai_text(self.feedback_msg, font_size=24, color=self.feedback_color)
+                screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 35)))
                 
         elif self.state == "ROUND_END":
-            fb_surf = render_thai_text(self.feedback_msg, font_size=32, color=self.feedback_color)
-            screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, 135)))
-
-        # 5. Draw Cards Grid (Hidden in ROULETTE and COUNTDOWN states)
-        if self.state not in ["ROULETTE", "COUNTDOWN"]:
-            show_faces = (self.state == "MEMORIZE")
             for card in self.cards:
-                card.draw(screen, show_face=show_faces)
-                if card.shake_offset > 0:
-                    card.shake_offset = -card.shake_offset + 2
-                    if abs(card.shake_offset) < 2:
-                        card.shake_offset = 0
+                card.draw(screen, show_face=card.is_matched)
+                
+            if self.feedback_msg:
+                fb_banner = pygame.Surface((680, 60), pygame.SRCALPHA)
+                pygame.draw.rect(fb_banner, (15, 23, 42, 245), (0, 0, 680, 60), border_radius=16)
+                pygame.draw.rect(fb_banner, self.feedback_color, (0, 0, 680, 60), width=3, border_radius=16)
+                screen.blit(fb_banner, (WIDTH // 2 - 340, HEIGHT - 70))
+                
+                fb_surf = render_thai_text(self.feedback_msg, font_size=24, color=self.feedback_color)
+                screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
-        # 6. Reticle Cursor
-        if self.state == "PLAY":
-            cx, cy = int(self.cursor_pos[0]), int(self.cursor_pos[1])
-            is_match = (self.current_detected_gesture == self.selected_gesture["id"])
-            cursor_col = ACCENT_EMERALD if is_match else ACCENT_AMBER
-            
-            pygame.draw.circle(screen, cursor_col, (cx, cy), 22, width=3)
-            pygame.draw.circle(screen, cursor_col, (cx, cy), 6)
-            
-            pygame.draw.line(screen, cursor_col, (cx - 28, cy), (cx - 10, cy), 2)
-            pygame.draw.line(screen, cursor_col, (cx + 10, cy), (cx + 28, cy), 2)
-            pygame.draw.line(screen, cursor_col, (cx, cy - 28), (cx, cy - 10), 2)
-            pygame.draw.line(screen, cursor_col, (cx, cy + 10), (cx, cy + 28), 2)
-            
-            tag_surf = render_thai_text(self.current_detected_gesture, font_size=15, color=cursor_col)
-            screen.blit(tag_surf, (cx + 20, cy - 20))
+        self.draw_cursor_and_skeleton()
 
-        pygame.display.flip()
+    def draw_cursor_and_skeleton(self):
+        self.draw_hand_skeleton()
+        
+        # Cursor indicator
+        cx, cy = int(self.cursor_pos[0]), int(self.cursor_pos[1])
+        cursor_col = ACCENT_AMBER if self.is_pinched else (ACCENT_EMERALD if self.current_detected_gesture == "OK" else ACCENT_CYAN)
+        
+        pygame.draw.circle(screen, cursor_col, (cx, cy), 18, width=3)
+        pygame.draw.circle(screen, (255, 255, 255), (cx, cy), 5)
+        
+        if self.current_detected_gesture != "NONE":
+            g_tag = render_thai_text(f"🖐️ {self.current_detected_gesture}", font_size=15, color=cursor_col)
+            screen.blit(g_tag, (cx + 20, cy - 12))
 
-def main():
-    game = GestureMemoryGame()
-    running = True
-    
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+    def run(self):
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     running = False
-                elif event.key == pygame.K_SPACE:
-                    game.start_new_round()
-                    
-        bg_cam = game.process_hand_tracking()
-        game.update()
-        game.draw(bg_cam)
-        clock.tick(60)
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        if self.state in ["LANDING_MENU", "PODIUM_DASHBOARD"]:
+                            running = False
+                        else:
+                            self.state = "LANDING_MENU"
 
-    if game.cap:
-        game.cap.release()
-    pygame.display.quit()
-    sys.exit()
+            bg_cam = self.process_hand_tracking()
+            self.update()
+            self.draw(bg_cam)
+            
+            pygame.display.flip()
+            clock.tick(60)
+
+        if self.cap:
+            self.cap.release()
+        pygame.quit()
+        sys.exit()
 
 if __name__ == "__main__":
-    main()
+    game = GestureMemoryGame()
+    game.run()
