@@ -6,9 +6,13 @@ import time
 import sys
 import math
 import os
+import difflib
 import urllib.request
+import subprocess
+import threading
 from PIL import Image, ImageDraw, ImageFont
 
+import speech_recognition as sr
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -20,13 +24,11 @@ MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/han
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "hand_landmarker.task")
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 SOUNDS_DIR = os.path.join(ASSETS_DIR, "sounds")
+AUDIO_DIR = os.path.join(ASSETS_DIR, "audio")
 
 # ---------------------------------------------------------
 # Low-Latency Non-Blocking Audio Engine
 # ---------------------------------------------------------
-import subprocess
-import threading
-
 class SoundEngine:
     def __init__(self):
         self.last_played = {}
@@ -57,6 +59,17 @@ class SoundEngine:
                 daemon=True
             ).start()
 
+    def play_vocab(self, word_id):
+        """Plays studio-quality English pronunciation of the target word."""
+        for ext in [".wav", ".mp3"]:
+            filepath = os.path.join(AUDIO_DIR, f"{word_id}{ext}")
+            if os.path.exists(filepath):
+                threading.Thread(
+                    target=lambda: subprocess.run(["afplay", filepath], capture_output=True),
+                    daemon=True
+                ).start()
+                return
+
 sound_engine = SoundEngine()
 
 # ---------------------------------------------------------
@@ -66,7 +79,7 @@ pygame.display.init()
 
 WIDTH, HEIGHT = 1080, 720
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("RouletVoc • AR Hand Gesture Vocabulary Game")
+pygame.display.set_caption("RouletVoc • AR Hand Gesture & Voice Vocabulary Game")
 clock = pygame.time.Clock()
 
 BG_COLOR = (15, 23, 42)
@@ -147,21 +160,21 @@ GESTURE_MODES = [
 ]
 
 # ---------------------------------------------------------
-# 12 School Classroom Vocabulary Items
+# 12 School Classroom Vocabulary Items & Speech Aliases
 # ---------------------------------------------------------
 ITEMS_POOL = [
-    {"id": "book", "word": "หนังสือ", "en": "Book", "filename": "book.png", "color": (56, 189, 248)},
-    {"id": "backpack", "word": "กระเป๋านักเรียน", "en": "School Bag", "filename": "backpack.png", "color": (96, 165, 250)},
-    {"id": "pen", "word": "ปากกา", "en": "Pen", "filename": "pen.png", "color": (129, 140, 248)},
-    {"id": "pencil", "word": "ดินสอ", "en": "Pencil", "filename": "pencil.png", "color": (251, 191, 36)},
-    {"id": "ruler", "word": "ไม้บรรทัด", "en": "Ruler", "filename": "ruler.png", "color": (245, 158, 11)},
-    {"id": "eraser", "word": "ยางลบ", "en": "Eraser", "filename": "eraser.png", "color": (56, 189, 248)},
-    {"id": "chair", "word": "เก้าอี้", "en": "Chair", "filename": "chair.png", "color": (251, 146, 60)},
-    {"id": "table", "word": "โต๊ะ", "en": "Table / Desk", "filename": "table.png", "color": (249, 115, 22)},
-    {"id": "notebook", "word": "สมุด", "en": "Notebook", "filename": "notebook.png", "color": (74, 222, 128)},
-    {"id": "window", "word": "หน้าต่าง", "en": "Window", "filename": "window.png", "color": (250, 204, 21)},
-    {"id": "clock", "word": "นาฬิกา", "en": "Clock", "filename": "clock.png", "color": (248, 113, 113)},
-    {"id": "fan", "word": "พัดลม", "en": "Fan", "filename": "fan.png", "color": (56, 189, 248)},
+    {"id": "backpack", "word": "กระเป๋า", "en": "Backpack", "filename": "backpack.png", "color": (96, 165, 250), "aliases": ["backpack", "pack", "bag", "school bag", "back pack"]},
+    {"id": "book", "word": "หนังสือ", "en": "Book", "filename": "book.png", "color": (56, 189, 248), "aliases": ["book", "books"]},
+    {"id": "chair", "word": "เก้าอี้", "en": "Chair", "filename": "chair.png", "color": (251, 146, 60), "aliases": ["chair", "chairs", "cheer"]},
+    {"id": "clock", "word": "นาฬิกา", "en": "Clock", "filename": "clock.png", "color": (248, 113, 113), "aliases": ["clock", "clocks", "watch"]},
+    {"id": "eraser", "word": "ยางลบ", "en": "Eraser", "filename": "eraser.png", "color": (56, 189, 248), "aliases": ["eraser", "erasers", "rubber", "erase"]},
+    {"id": "fan", "word": "พัดลม", "en": "Fan", "filename": "fan.png", "color": (56, 189, 248), "aliases": ["fan", "fans"]},
+    {"id": "notebook", "word": "สมุด", "en": "Notebook", "filename": "notebook.png", "color": (74, 222, 128), "aliases": ["notebook", "notebooks", "note book", "note"]},
+    {"id": "pen", "word": "ปากกา", "en": "Pen", "filename": "pen.png", "color": (129, 140, 248), "aliases": ["pen", "pens", "pan"]},
+    {"id": "pencil", "word": "ดินสอ", "en": "Pencil", "filename": "pencil.png", "color": (251, 191, 36), "aliases": ["pencil", "pencils"]},
+    {"id": "ruler", "word": "ไม้บรรทัด", "en": "Ruler", "filename": "ruler.png", "color": (245, 158, 11), "aliases": ["ruler", "rulers"]},
+    {"id": "table", "word": "โต๊ะ", "en": "Table", "filename": "table.png", "color": (249, 115, 22), "aliases": ["table", "tables", "desk"]},
+    {"id": "window", "word": "หน้าต่าง", "en": "Window", "filename": "window.png", "color": (250, 204, 21), "aliases": ["window", "windows"]}
 ]
 
 # ---------------------------------------------------------
@@ -439,6 +452,16 @@ class GestureMemoryGame:
         self.locked_palm_size = 0.0
         self.last_player_seen_time = 0.0
         
+        # Speech Recognition & Voice Verification Engine
+        self.speech_recognizer = sr.Recognizer()
+        self.speech_recognizer.energy_threshold = 280
+        self.speech_recognizer.dynamic_energy_threshold = True
+        self.is_listening = False
+        self.voice_attempts = 0
+        self.voice_recognized_text = ""
+        self.voice_success = False
+        self.voice_feedback_msg = ""
+        
         # Exhaustive Shuffled Decks (100% Vocabulary & Gesture Coverage)
         self.unplayed_vocab_deck = []
         self.unplayed_gesture_deck = []
@@ -448,6 +471,90 @@ class GestureMemoryGame:
         self.cap = None
         self.setup_tracking_engine()
         self.setup_camera()
+
+    def listen_speech_worker(self):
+        """
+        Background worker that listens to the microphone, recognizes English speech,
+        and verifies pronunciation before awarding points.
+        """
+        try:
+            with sr.Microphone() as source:
+                self.speech_recognizer.adjust_for_ambient_noise(source, duration=0.6)
+                if self.speech_recognizer.energy_threshold > 300:
+                    self.speech_recognizer.energy_threshold = 300
+                audio = self.speech_recognizer.listen(source, timeout=5.0, phrase_time_limit=4.0)
+                
+                try:
+                    text = self.speech_recognizer.recognize_google(audio, language="en-US")
+                except Exception:
+                    try:
+                        text = self.speech_recognizer.recognize_google(audio, language="th-TH")
+                    except Exception:
+                        text = ""
+                        
+                self.voice_recognized_text = text
+                target_en = self.target_item["en"].lower()
+                aliases = self.target_item.get("aliases", [target_en])
+                
+                is_correct = any(
+                    (t in text.lower()) or 
+                    (difflib.SequenceMatcher(None, t, text.lower()).ratio() >= 0.55)
+                    for t in aliases
+                )
+                
+                if is_correct:
+                    self.voice_success = True
+                    sound_engine.play("correct")
+                    if self.mode == "FREEDOM":
+                        self.freedom_score += 100
+                        self.score = self.freedom_score
+                    else:
+                        self.team_scores[self.current_team_idx]["score"] += 100
+                        self.score = self.team_scores[self.current_team_idx]["score"]
+                    self.feedback_msg = f"🎉 ออกเสียงถูกต้อง! '{text}' (+100 คะแนน)"
+                    self.feedback_color = ACCENT_EMERALD
+                    time.sleep(1.4)
+                    self.state = "ROUND_END"
+                    self.state_timer = time.time()
+                else:
+                    self.voice_attempts += 1
+                    sound_engine.play("wrong")
+                    if self.voice_attempts >= 2:
+                        self.feedback_msg = f"⚠️ ได้ยิน: '{text}' (หมดโควต้าฟังเสียง ข้ามไปรอบถัดไป)"
+                        self.feedback_color = ACCENT_ROSE
+                        time.sleep(1.6)
+                        self.state = "ROUND_END"
+                        self.state_timer = time.time()
+                    else:
+                        self.feedback_msg = f"⚠️ ได้ยิน: '{text}' (ยังไม่ถูกต้อง ลองออกเสียงใหม่อีกครั้ง!)"
+                        self.feedback_color = ACCENT_AMBER
+                        self.state_timer = time.time()
+                        time.sleep(0.8)
+                        if self.state == "VOICE_VERIFY":
+                            threading.Thread(target=self.listen_speech_worker, daemon=True).start()
+        except sr.WaitTimeoutError:
+            self.voice_attempts += 1
+            if self.voice_attempts >= 2:
+                self.feedback_msg = "⏱️ หมดเวลาฟังเสียง! ข้ามไปรอบถัดไป"
+                self.feedback_color = ACCENT_ROSE
+                time.sleep(1.4)
+                self.state = "ROUND_END"
+                self.state_timer = time.time()
+            else:
+                self.feedback_msg = "⏱️ ไม่ได้ยินเสียง ลองพูดใหม่อีกครั้ง..."
+                self.feedback_color = ACCENT_AMBER
+                self.state_timer = time.time()
+                if self.state == "VOICE_VERIFY":
+                    threading.Thread(target=self.listen_speech_worker, daemon=True).start()
+        except Exception as e:
+            print("[Speech Engine] Recognition error:", e)
+            self.feedback_msg = "ข้ามการตรวจจับเสียงไปยังรอบถัดไป"
+            self.feedback_color = ACCENT_AMBER
+            time.sleep(1.0)
+            self.state = "ROUND_END"
+            self.state_timer = time.time()
+        finally:
+            self.is_listening = False
 
     def setup_tracking_engine(self):
         if not os.path.exists(MODEL_PATH):
@@ -767,11 +874,13 @@ class GestureMemoryGame:
             self.selected_gesture = self.wheel.get_current_selected_gesture()
             
             if not self.wheel.is_spinning and elapsed > 3.0:
+                sound_engine.play("wheel_win")
+                sound_engine.play_vocab(self.target_item["id"])
                 self.state = "ANNOUNCE"
                 self.state_timer = now
                 
         elif self.state == "ANNOUNCE":
-            if elapsed > 2.6:
+            if elapsed > 2.8:
                 self.state = "MEMORIZE"
                 self.state_timer = now
                 
@@ -816,6 +925,10 @@ class GestureMemoryGame:
                     card.hover_progress = max(0.0, card.hover_progress - 0.08)
                     card.action_charge = max(0.0, card.action_charge - 0.20)
                     
+        elif self.state == "VOICE_VERIFY":
+            # Managed asynchronously by listen_speech_worker
+            pass
+            
         elif self.state == "ROUND_END":
             if elapsed > 2.8:
                 if self.mode == "FREEDOM":
@@ -844,18 +957,18 @@ class GestureMemoryGame:
         card.is_flipped = True
         if card.item["id"] == self.target_item["id"]:
             card.is_matched = True
-            sound_engine.play("correct")
-            if self.mode == "FREEDOM":
-                self.freedom_score += 100
-                self.score = self.freedom_score
-            else:
-                self.team_scores[self.current_team_idx]["score"] += 100
-                self.score = self.team_scores[self.current_team_idx]["score"]
-                
-            self.feedback_msg = f"🎉 ท่าทางถูกต้อง + เลือกถูกการ์ด! (+100 คะแนน)"
-            self.feedback_color = ACCENT_EMERALD
-            self.state = "ROUND_END"
+            sound_engine.play("lock")
+            
+            # Transition to Voice Verification: Score is awarded ONLY after speaking correctly!
+            self.state = "VOICE_VERIFY"
             self.state_timer = time.time()
+            self.voice_attempts = 0
+            self.voice_recognized_text = ""
+            self.voice_success = False
+            self.is_listening = True
+            self.feedback_msg = f"🎙️ กรุณาออกเสียง: '{self.target_item['en'].upper()}' ({self.target_item['word']})"
+            self.feedback_color = ACCENT_AMBER
+            threading.Thread(target=self.listen_speech_worker, daemon=True).start()
         else:
             self.chances_left -= 1
             card.shake_offset = 14
@@ -1298,15 +1411,15 @@ class GestureMemoryGame:
             
         elif self.state == "ANNOUNCE":
             self.wheel.draw(screen)
-            banner = pygame.Surface((700, 110), pygame.SRCALPHA)
-            pygame.draw.rect(banner, (15, 23, 42, 245), (0, 0, 700, 110), border_radius=24)
-            pygame.draw.rect(banner, self.selected_gesture["color"], (0, 0, 700, 110), width=4, border_radius=24)
-            screen.blit(banner, (WIDTH // 2 - 350, HEIGHT - 135))
+            banner = pygame.Surface((740, 130), pygame.SRCALPHA)
+            pygame.draw.rect(banner, (15, 23, 42, 245), (0, 0, 740, 130), border_radius=24)
+            pygame.draw.rect(banner, self.selected_gesture["color"], (0, 0, 740, 130), width=4, border_radius=24)
+            screen.blit(banner, (WIDTH // 2 - 370, HEIGHT - 150))
             
-            t1 = render_thai_text(f"ท่าที่ต้องใช้: {self.selected_gesture['emoji']} {self.selected_gesture['name']}", font_size=30, color=self.selected_gesture["color"])
-            t2 = render_thai_text(self.selected_gesture["desc"], font_size=20, color=TEXT_WHITE)
-            screen.blit(t1, t1.get_rect(center=(WIDTH // 2, HEIGHT - 100)))
-            screen.blit(t2, t2.get_rect(center=(WIDTH // 2, HEIGHT - 55)))
+            t1 = render_thai_text(f"ท่าที่ต้องใช้: {self.selected_gesture['emoji']} {self.selected_gesture['name']}", font_size=28, color=self.selected_gesture["color"])
+            t2 = render_thai_text(f"🔊 ฟังคำศัพท์: \"{self.target_item['en'].upper()}\" ({self.target_item['word']})", font_size=22, color=ACCENT_AMBER)
+            screen.blit(t1, t1.get_rect(center=(WIDTH // 2, HEIGHT - 115)))
+            screen.blit(t2, t2.get_rect(center=(WIDTH // 2, HEIGHT - 70)))
             
         elif self.state == "MEMORIZE":
             t_banner = pygame.Surface((640, 80), pygame.SRCALPHA)
@@ -1355,6 +1468,9 @@ class GestureMemoryGame:
                 fb_surf = render_thai_text(self.feedback_msg, font_size=24, color=self.feedback_color)
                 screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 35)))
                 
+        elif self.state == "VOICE_VERIFY":
+            self.draw_voice_verify()
+            
         elif self.state == "ROUND_END":
             for card in self.cards:
                 card.draw(screen, show_face=card.is_matched)
@@ -1369,6 +1485,72 @@ class GestureMemoryGame:
                 screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
         self.draw_cursor_and_skeleton()
+
+    def draw_voice_verify(self):
+        # 1. Background Cards
+        for card in self.cards:
+            card.draw(screen, show_face=card.is_matched)
+            
+        # 2. Focus Dim Overlay
+        dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        dim.fill((15, 23, 42, 195))
+        screen.blit(dim, (0, 0))
+        
+        # 3. Voice Verification Modal
+        box_w, box_h = 740, 370
+        box_x = (WIDTH - box_w) // 2
+        box_y = (HEIGHT - box_h) // 2 - 10
+        box_rect = pygame.Rect(box_x, box_y, box_w, box_h)
+        
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (20, 30, 48, 252), (0, 0, box_w, box_h), border_radius=26)
+        border_col = ACCENT_EMERALD if self.voice_success else ACCENT_AMBER
+        pygame.draw.rect(box_surf, border_col, (0, 0, box_w, box_h), width=3, border_radius=26)
+        screen.blit(box_surf, (box_x, box_y))
+        
+        # Modal Header Badge
+        header_surf = render_thai_text("🎙️ ตรวจสอบการออกเสียงคำศัพท์ (Voice Verification)", font_size=25, color=ACCENT_AMBER)
+        screen.blit(header_surf, header_surf.get_rect(center=(WIDTH // 2, box_y + 42)))
+        
+        # Target English Word
+        target_word_str = f"🗣️ \"{self.target_item['en'].upper()}\""
+        word_surf = render_thai_text(target_word_str, font_size=42, color=TEXT_WHITE)
+        screen.blit(word_surf, word_surf.get_rect(center=(WIDTH // 2, box_y + 110)))
+        
+        sub_thai = render_thai_text(f"(ความหมาย: {self.target_item['word']})", font_size=20, color=ACCENT_CYAN)
+        screen.blit(sub_thai, sub_thai.get_rect(center=(WIDTH // 2, box_y + 155)))
+        
+        # Pulsing Audio Waveform Animation
+        now = time.time()
+        wave_cx = WIDTH // 2
+        wave_cy = box_y + 215
+        num_bars = 13
+        for i in range(num_bars):
+            offset = (i - num_bars // 2) * 16
+            if self.is_listening:
+                h = int(12 + math.sin(now * 9 + i * 0.6) * 18 + math.cos(now * 14 + i * 1.1) * 10)
+                h = max(8, min(48, h))
+            else:
+                h = 10
+            bar_rect = pygame.Rect(wave_cx + offset - 4, wave_cy - h // 2, 8, h)
+            bar_col = ACCENT_EMERALD if self.voice_success else ACCENT_CYAN
+            pygame.draw.rect(screen, bar_col, bar_rect, border_radius=4)
+            
+        # Status / Feedback
+        if self.voice_success:
+            st_surf = render_thai_text("🎉 ออกเสียงถูกต้อง! ได้รับ +100 คะแนน", font_size=24, color=ACCENT_EMERALD)
+        elif self.voice_recognized_text:
+            st_surf = render_thai_text(f"ได้ยิน: \"{self.voice_recognized_text}\"...", font_size=22, color=self.feedback_color)
+        elif self.is_listening:
+            st_surf = render_thai_text("🟢 กำลังรอฟังเสียง... พูดคำศัพท์ภาษาอังกฤษใส่ไมโครโฟนได้เลย", font_size=19, color=TEXT_WHITE)
+        else:
+            st_surf = render_thai_text("เตรียมพร้อมฟังเสียง...", font_size=19, color=(148, 163, 184))
+            
+        screen.blit(st_surf, st_surf.get_rect(center=(WIDTH // 2, box_y + 280)))
+        
+        # Hint Subtitle
+        hint_surf = render_thai_text("💡 ออกเสียงภาษาอังกฤษให้ถูกต้องเพื่อปลดล็อกคะแนนประจำรอบ", font_size=16, color=(148, 163, 184))
+        screen.blit(hint_surf, hint_surf.get_rect(center=(WIDTH // 2, box_y + 332)))
 
     def draw_cursor_and_skeleton(self):
         self.draw_hand_skeleton()
