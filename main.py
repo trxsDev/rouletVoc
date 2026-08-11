@@ -82,10 +82,14 @@ ACCENT_PURPLE = (168, 85, 247)
 ACCENT_BLUE = (59, 130, 246)
 
 TEAM_PALETTES = [
-    {"name": "Team Red", "thai": "ทีมสีแดง", "color": (239, 68, 68), "bg_col": (127, 29, 29), "emoji": "🔴"},
-    {"name": "Team Blue", "thai": "ทีมสีน้ำเงิน", "color": (59, 130, 246), "bg_col": (30, 58, 138), "emoji": "🔵"},
-    {"name": "Team Green", "thai": "ทีมสีเขียว", "color": (16, 185, 129), "bg_col": (6, 78, 59), "emoji": "🟢"},
-    {"name": "Team Yellow", "thai": "ทีมสีเหลือง", "color": (245, 158, 11), "bg_col": (120, 53, 15), "emoji": "🟡"}
+    {"name": "Team 1", "thai": "ทีมที่ 1", "color": (239, 68, 68), "bg_col": (127, 29, 29), "emoji": "🔴"},
+    {"name": "Team 2", "thai": "ทีมที่ 2", "color": (59, 130, 246), "bg_col": (30, 58, 138), "emoji": "🔵"},
+    {"name": "Team 3", "thai": "ทีมที่ 3", "color": (16, 185, 129), "bg_col": (6, 78, 59), "emoji": "🟢"},
+    {"name": "Team 4", "thai": "ทีมที่ 4", "color": (245, 158, 11), "bg_col": (120, 53, 15), "emoji": "🟡"},
+    {"name": "Team 5", "thai": "ทีมที่ 5", "color": (168, 85, 247), "bg_col": (88, 28, 135), "emoji": "🟣"},
+    {"name": "Team 6", "thai": "ทีมที่ 6", "color": (236, 72, 153), "bg_col": (131, 24, 67), "emoji": "🌸"},
+    {"name": "Team 7", "thai": "ทีมที่ 7", "color": (249, 115, 22), "bg_col": (124, 45, 18), "emoji": "🟠"},
+    {"name": "Team 8", "thai": "ทีมที่ 8", "color": (6, 182, 212), "bg_col": (14, 116, 144), "emoji": "🔷"}
 ]
 
 # ---------------------------------------------------------
@@ -936,61 +940,100 @@ class GestureMemoryGame:
         screen.blit(overlay, (0, 0))
         
         title_surf = render_thai_text("⚙️ ตั้งค่าการแข่งขันแบบทีม (Tournament Setup)", font_size=36, color=ACCENT_AMBER)
-        screen.blit(title_surf, title_surf.get_rect(center=(WIDTH // 2, 90)))
+        screen.blit(title_surf, title_surf.get_rect(center=(WIDTH // 2, 60)))
         
         mouse_pos = pygame.mouse.get_pos()
-        clicked = pygame.mouse.get_pressed()[0]
+        clicked = getattr(self, "mouse_clicked", False)
         
-        # 1. Number of Teams
-        lbl1 = render_thai_text("1. จำนวนทีม:", font_size=24, color=TEXT_WHITE)
-        screen.blit(lbl1, (WIDTH // 2 - 320, 165))
+        # 1. Number of Teams Selector (2 to 8 Teams)
+        lbl1 = render_thai_text("1. จำนวนทีม (2 - 8 ทีม):", font_size=22, color=TEXT_WHITE)
+        screen.blit(lbl1, (WIDTH // 2 - 380, 115))
         
-        for i, count in enumerate([2, 3, 4]):
-            btn_rect = pygame.Rect(WIDTH // 2 - 140 + i * 110, 160, 95, 45)
-            is_active = (self.num_teams == count)
-            is_hover = btn_rect.collidepoint(mouse_pos)
-            
-            col = ACCENT_CYAN if is_active else ((30, 41, 59) if not is_hover else (51, 65, 85))
-            text_col = (15, 23, 42) if is_active else TEXT_WHITE
-            
-            pygame.draw.rect(screen, col, btn_rect, border_radius=12)
-            pygame.draw.rect(screen, ACCENT_CYAN if is_active else CARD_BORDER, btn_rect, width=2, border_radius=12)
+        # Left Arrow (Decrease)
+        btn_team_dec = pygame.Rect(WIDTH // 2 - 40, 108, 48, 44)
+        dec_hover = btn_team_dec.collidepoint(mouse_pos)
+        pygame.draw.rect(screen, (30, 41, 59) if not dec_hover else (51, 65, 85), btn_team_dec, border_radius=10)
+        pygame.draw.rect(screen, CARD_BORDER, btn_team_dec, width=1, border_radius=10)
+        arr_l = render_thai_text("◀", font_size=20, color=ACCENT_CYAN if self.num_teams > 2 else (100, 116, 139))
+        screen.blit(arr_l, arr_l.get_rect(center=btn_team_dec.center))
+        
+        # Team Count Display Box
+        val_team_rect = pygame.Rect(WIDTH // 2 + 18, 108, 120, 44)
+        pygame.draw.rect(screen, (20, 30, 48), val_team_rect, border_radius=10)
+        pygame.draw.rect(screen, ACCENT_CYAN, val_team_rect, width=2, border_radius=10)
+        v_team = render_thai_text(f"{self.num_teams} ทีม", font_size=22, color=ACCENT_CYAN)
+        screen.blit(v_team, v_team.get_rect(center=val_team_rect.center))
+        
+        # Right Arrow (Increase)
+        btn_team_inc = pygame.Rect(WIDTH // 2 + 148, 108, 48, 44)
+        inc_hover = btn_team_inc.collidepoint(mouse_pos)
+        pygame.draw.rect(screen, (30, 41, 59) if not inc_hover else (51, 65, 85), btn_team_inc, border_radius=10)
+        pygame.draw.rect(screen, CARD_BORDER, btn_team_inc, width=1, border_radius=10)
+        arr_r = render_thai_text("▶", font_size=20, color=ACCENT_CYAN if self.num_teams < 8 else (100, 116, 139))
+        screen.blit(arr_r, arr_r.get_rect(center=btn_team_inc.center))
+        
+        # Handle Team count clicks
+        if clicked:
+            if dec_hover and self.num_teams > 2:
+                self.num_teams -= 1
+            elif inc_hover and self.num_teams < 8:
+                self.num_teams += 1
                 
-            t_surf = render_thai_text(f"{count} ทีม", font_size=18, color=text_col)
-            screen.blit(t_surf, t_surf.get_rect(center=btn_rect.center))
-            
-            if clicked and is_hover:
-                self.num_teams = count
-                
+        # Display 8-Team Badges (in 2 rows of 4)
         for t in range(self.num_teams):
             p = TEAM_PALETTES[t]
-            t_rect = pygame.Rect(WIDTH // 2 - 320 + t * 165, 225, 150, 52)
-            pygame.draw.rect(screen, (20, 30, 48), t_rect, border_radius=14)
-            pygame.draw.rect(screen, p["color"], t_rect, width=2, border_radius=14)
-            p_surf = render_thai_text(f"{p['emoji']} {p['name']}", font_size=18, color=p["color"])
+            row = t // 4
+            col = t % 4
+            cards_in_this_row = min(4, self.num_teams - row * 4) if row > 0 else min(4, self.num_teams)
+            row_start_x = (WIDTH - (cards_in_this_row * 140 + (cards_in_this_row - 1) * 16)) // 2
+            t_x = row_start_x + col * (140 + 16)
+            t_y = 168 + row * 52
+            
+            t_rect = pygame.Rect(t_x, t_y, 140, 44)
+            pygame.draw.rect(screen, (20, 30, 48), t_rect, border_radius=12)
+            pygame.draw.rect(screen, p["color"], t_rect, width=2, border_radius=12)
+            p_surf = render_thai_text(f"{p['emoji']} {p['name']}", font_size=17, color=p["color"])
             screen.blit(p_surf, p_surf.get_rect(center=t_rect.center))
             
-        # 2. Words per Team
-        lbl2 = render_thai_text("2. จำนวนคำต่อทีม:", font_size=24, color=TEXT_WHITE)
-        screen.blit(lbl2, (WIDTH // 2 - 320, 315))
+        # 2. Words per Team Selector (1 to 12 Words)
+        max_words = len(ITEMS_POOL) # 12
+        w_y = 290
+        lbl2 = render_thai_text(f"2. จำนวนคำต่อทีม (1 - {max_words} คำ):", font_size=22, color=TEXT_WHITE)
+        screen.blit(lbl2, (WIDTH // 2 - 380, w_y + 7))
         
-        for i, count in enumerate([3, 5, 8]):
-            btn_rect = pygame.Rect(WIDTH // 2 - 140 + i * 110, 310, 95, 45)
-            is_active = (self.words_per_team == count)
-            is_hover = btn_rect.collidepoint(mouse_pos)
-            
-            col = ACCENT_AMBER if is_active else ((30, 41, 59) if not is_hover else (51, 65, 85))
-            text_col = (15, 23, 42) if is_active else TEXT_WHITE
-            
-            pygame.draw.rect(screen, col, btn_rect, border_radius=12)
-            pygame.draw.rect(screen, ACCENT_AMBER if is_active else CARD_BORDER, btn_rect, width=2, border_radius=12)
+        # Left Arrow (Decrease)
+        btn_word_dec = pygame.Rect(WIDTH // 2 - 40, w_y, 48, 44)
+        w_dec_hover = btn_word_dec.collidepoint(mouse_pos)
+        pygame.draw.rect(screen, (30, 41, 59) if not w_dec_hover else (51, 65, 85), btn_word_dec, border_radius=10)
+        pygame.draw.rect(screen, CARD_BORDER, btn_word_dec, width=1, border_radius=10)
+        w_arr_l = render_thai_text("◀", font_size=20, color=ACCENT_AMBER if self.words_per_team > 1 else (100, 116, 139))
+        screen.blit(w_arr_l, w_arr_l.get_rect(center=btn_word_dec.center))
+        
+        # Word Count Display Box
+        val_word_rect = pygame.Rect(WIDTH // 2 + 18, w_y, 120, 44)
+        pygame.draw.rect(screen, (20, 30, 48), val_word_rect, border_radius=10)
+        pygame.draw.rect(screen, ACCENT_AMBER, val_word_rect, width=2, border_radius=10)
+        v_word = render_thai_text(f"{self.words_per_team} คำ", font_size=22, color=ACCENT_AMBER)
+        screen.blit(v_word, v_word.get_rect(center=val_word_rect.center))
+        
+        # Right Arrow (Increase)
+        btn_word_inc = pygame.Rect(WIDTH // 2 + 148, w_y, 48, 44)
+        w_inc_hover = btn_word_inc.collidepoint(mouse_pos)
+        pygame.draw.rect(screen, (30, 41, 59) if not w_inc_hover else (51, 65, 85), btn_word_inc, border_radius=10)
+        pygame.draw.rect(screen, CARD_BORDER, btn_word_inc, width=1, border_radius=10)
+        w_arr_r = render_thai_text("▶", font_size=20, color=ACCENT_AMBER if self.words_per_team < max_words else (100, 116, 139))
+        screen.blit(w_arr_r, w_arr_r.get_rect(center=btn_word_inc.center))
+        
+        if clicked:
+            if w_dec_hover and self.words_per_team > 1:
+                self.words_per_team -= 1
+            elif w_inc_hover and self.words_per_team < max_words:
+                self.words_per_team += 1
                 
-            t_surf = render_thai_text(f"{count} คำ", font_size=18, color=text_col)
-            screen.blit(t_surf, t_surf.get_rect(center=btn_rect.center))
-            
-            if clicked and is_hover:
-                self.words_per_team = count
-                
+        # Subtitle instructions / Keyboard Shortcuts Guide
+        tip_surf = render_thai_text("💡 ใช้เมาส์คลิก หรือกดปุ่มลูกศร ◀ / ▶ (ปรับทีม) และ ▲ / ▼ (ปรับจำนวนคำ) บนคีย์บอร์ดได้", font_size=15, color=(148, 163, 184))
+        screen.blit(tip_surf, tip_surf.get_rect(center=(WIDTH // 2, 380)))
+        
         # Start Button
         start_btn = pygame.Rect(WIDTH // 2 - 150, 430, 300, 60)
         st_hover = start_btn.collidepoint(mouse_pos)
@@ -1307,15 +1350,30 @@ class GestureMemoryGame:
     def run(self):
         running = True
         while running:
+            self.mouse_clicked = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        self.mouse_clicked = True
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         if self.state in ["LANDING_MENU", "PODIUM_DASHBOARD"]:
                             running = False
                         else:
                             self.state = "LANDING_MENU"
+                    elif self.state == "TEAM_SETUP":
+                        if event.key == pygame.K_LEFT and self.num_teams > 2:
+                            self.num_teams -= 1
+                        elif event.key == pygame.K_RIGHT and self.num_teams < 8:
+                            self.num_teams += 1
+                        elif event.key == pygame.K_DOWN and self.words_per_team > 1:
+                            self.words_per_team -= 1
+                        elif event.key == pygame.K_UP and self.words_per_team < len(ITEMS_POOL):
+                            self.words_per_team += 1
+                        elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                            self.start_team_tournament()
 
             bg_cam = self.process_hand_tracking()
             self.update()
