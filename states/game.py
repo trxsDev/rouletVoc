@@ -209,7 +209,11 @@ class GestureMemoryGame:
                 if card.rect.colliderect(cursor_rect) and not card.is_matched and not card.is_flipped:
                     card.hover_progress = min(1.0, card.hover_progress + 0.08)
                     
-                    if is_armed and (self.tracking_engine.current_detected_gesture == req_gesture):
+                    gesture_matches = (
+                        (self.tracking_engine.current_detected_gesture == req_gesture) or 
+                        (req_gesture == "PINCH" and (self.tracking_engine.is_pinched or self.tracking_engine.current_detected_gesture in ["PINCH", "OK"]))
+                    )
+                    if is_armed and gesture_matches:
                         card.action_charge = min(1.0, card.action_charge + 0.09)
                         if card.action_charge >= 1.0:
                             sound_engine.play("lock")
