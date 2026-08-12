@@ -12,7 +12,21 @@ def get_thai_font(size):
     if size in _font_cache:
         return _font_cache[size]
     
-    font_paths = [
+    # 1. Primary: Bundled high-definition Thai Unicode font (Mali)
+    bundled_fonts = [
+        os.path.join(ASSETS_DIR, "fonts", "Mali", "Mali-Bold.ttf"),
+        os.path.join(ASSETS_DIR, "fonts", "Mali", "Mali-Regular.ttf"),
+    ]
+    
+    # 2. Fallbacks: Windows & macOS system fonts
+    system_fonts = [
+        # Windows
+        "C:\\Windows\\Fonts\\tahoma.ttf",
+        "C:\\Windows\\Fonts\\leelawad.ttf",
+        "C:\\Windows\\Fonts\\leelawdb.ttf",
+        "C:\\Windows\\Fonts\\segoeui.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        # macOS
         "/System/Library/Fonts/Supplemental/SukhumvitSet.ttc",
         "/System/Library/Fonts/Supplemental/Thonburi.ttc",
         "/System/Library/Fonts/Supplemental/Ayuthaya.ttf",
@@ -20,7 +34,7 @@ def get_thai_font(size):
         "/System/Library/Fonts/Helvetica.ttc"
     ]
     
-    for path in font_paths:
+    for path in bundled_fonts + system_fonts:
         if os.path.exists(path):
             try:
                 font = ImageFont.truetype(path, size)
