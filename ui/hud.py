@@ -15,29 +15,31 @@ class HUD:
         surface.blit(header_surf, (0, 0))
         
         # Menu Button
-        menu_btn = pygame.Rect(18, 14, 100, 46)
+        menu_btn = pygame.Rect(18, 14, 110, 46)
         m_hover = menu_btn.collidepoint(pygame.mouse.get_pos())
         pygame.draw.rect(surface, (30, 41, 59) if not m_hover else (51, 65, 85), menu_btn, border_radius=16)
         pygame.draw.rect(surface, CARD_BORDER, menu_btn, width=1, border_radius=16)
-        m_text = render_thai_text("🏠 เมนู", font_size=18, color=TEXT_WHITE)
+        m_text = render_thai_text("เมนูหลัก", font_size=18, color=TEXT_WHITE)
         surface.blit(m_text, m_text.get_rect(center=menu_btn.center))
         
         # Mode & Score Badges
         if mode == "FREEDOM":
-            m_badge = render_thai_text("🌟 Freedom Mode", font_size=20, color=ACCENT_CYAN)
-            surface.blit(m_badge, (135, 24))
+            m_badge = render_thai_text("Freedom Mode", font_size=20, color=ACCENT_CYAN)
+            surface.blit(m_badge, (145, 24))
             
-            score_text = render_thai_text(f"⭐ คะแนน: {freedom_score}", font_size=24, color=ACCENT_AMBER)
+            score_text = render_thai_text(f"คะแนน: {freedom_score}", font_size=24, color=ACCENT_AMBER)
             surface.blit(score_text, score_text.get_rect(midright=(WIDTH - 24, 37)))
         else:
             team = team_scores[current_team_idx]
-            m_badge = render_thai_text(f"{team['emoji']} {team['name']} • คำที่ {team['words_done'] + 1}/{words_per_team}", font_size=22, color=team["color"])
-            surface.blit(m_badge, (135, 24))
+            # Draw Color Dot
+            pygame.draw.circle(surface, team["color"], (155, 37), 8)
+            m_badge = render_thai_text(f"{team['name']} • คำที่ {team['words_done'] + 1}/{words_per_team}", font_size=22, color=team["color"])
+            surface.blit(m_badge, (170, 24))
             
-            score_text = render_thai_text(f"⭐ แต้มทีม: {team['score']}", font_size=24, color=ACCENT_AMBER)
+            score_text = render_thai_text(f"แต้มทีม: {team['score']}", font_size=24, color=ACCENT_AMBER)
             surface.blit(score_text, score_text.get_rect(midright=(WIDTH - 24, 37)))
             
-        chances_surf = render_thai_text(f"❤️ x {chances_left}", font_size=22, color=ACCENT_ROSE)
+        chances_surf = render_thai_text(f"โอกาส: {chances_left} ครั้ง", font_size=22, color=ACCENT_ROSE)
         surface.blit(chances_surf, chances_surf.get_rect(center=(WIDTH // 2, 37)))
 
         return menu_btn
@@ -67,5 +69,5 @@ class HUD:
         pygame.draw.circle(surface, (255, 255, 255), (cx, cy), 5)
         
         if current_gesture != "NONE":
-            g_tag = render_thai_text(f"🖐️ {current_gesture}", font_size=15, color=cursor_col)
+            g_tag = render_thai_text(f"ท่า: {current_gesture}", font_size=15, color=cursor_col)
             surface.blit(g_tag, (cx + 20, cy - 12))

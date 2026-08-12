@@ -29,11 +29,11 @@ class VoiceModal:
         surface.blit(box_surf, (box_x, box_y))
 
         # Modal Header
-        header_surf = render_thai_text("🎙️ ตรวจสอบการออกเสียงคำศัพท์ (Voice Verification)", font_size=25, color=ACCENT_AMBER)
+        header_surf = render_thai_text("ตรวจสอบการออกเสียงคำศัพท์ (Voice Verification)", font_size=25, color=ACCENT_AMBER)
         surface.blit(header_surf, header_surf.get_rect(center=(WIDTH // 2, box_y + 42)))
 
         # Target English Word
-        target_word_str = f"🗣️ \"{target_item['en'].upper()}\""
+        target_word_str = f"\"{target_item['en'].upper()}\""
         word_surf = render_thai_text(target_word_str, font_size=42, color=TEXT_WHITE)
         surface.blit(word_surf, word_surf.get_rect(center=(WIDTH // 2, box_y + 110)))
 
@@ -58,16 +58,16 @@ class VoiceModal:
 
         # Status / Feedback Text
         if is_success:
-            st_surf = render_thai_text("🎉 ออกเสียงถูกต้อง! ได้รับ +100 คะแนน", font_size=24, color=ACCENT_EMERALD)
+            st_surf = render_thai_text("ออกเสียงถูกต้อง! ได้รับ +100 คะแนน", font_size=24, color=ACCENT_EMERALD)
         elif recognized_text:
             st_surf = render_thai_text(f"ได้ยิน: \"{recognized_text}\"...", font_size=22, color=feedback_color)
         elif is_listening:
-            st_surf = render_thai_text("🟢 กำลังรอฟังเสียง... พูดคำศัพท์ภาษาอังกฤษใส่ไมโครโฟนได้เลย", font_size=19, color=TEXT_WHITE)
+            st_surf = render_thai_text("กำลังรอฟังเสียง... พูดคำศัพท์ภาษาอังกฤษใส่ไมโครโฟนได้เลย", font_size=19, color=TEXT_WHITE)
         else:
             st_surf = render_thai_text("เตรียมพร้อมฟังเสียง...", font_size=19, color=(148, 163, 184))
 
         surface.blit(st_surf, st_surf.get_rect(center=(WIDTH // 2, box_y + 280)))
 
         # Hint Subtitle
-        hint_surf = render_thai_text("💡 ออกเสียงภาษาอังกฤษให้ถูกต้องเพื่อปลดล็อกคะแนนประจำรอบ", font_size=16, color=(148, 163, 184))
+        hint_surf = render_thai_text("ออกเสียงภาษาอังกฤษให้ถูกต้องเพื่อปลดล็อกคะแนนประจำรอบ", font_size=16, color=(148, 163, 184))
         surface.blit(hint_surf, hint_surf.get_rect(center=(WIDTH // 2, box_y + 332)))

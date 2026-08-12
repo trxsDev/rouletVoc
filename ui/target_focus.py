@@ -78,7 +78,7 @@ class TargetFocusScreen:
 
         # English Word (Large, clear gold text)
         font_en_size = int(18 + t * 24)
-        en_text = f"🗣️ \"{target_item['en'].upper()}\"" if t > 0.3 else target_item["en"]
+        en_text = f"\"{target_item['en'].upper()}\"" if t > 0.3 else target_item["en"]
         en_surf = render_thai_text(en_text, font_size=font_en_size, color=ACCENT_AMBER)
         surface.blit(en_surf, en_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery + int(45 + t * 50))))
 
@@ -89,15 +89,15 @@ class TargetFocusScreen:
 
         # Top Header & 2-Time Pronunciation Status
         if t > 0.5:
-            header_surf = render_thai_text("🎯 คำศัพท์ประจำรอบที่ต้องค้นหา (Target Word)", font_size=28, color=ACCENT_AMBER)
+            header_surf = render_thai_text("คำศัพท์ประจำรอบที่ต้องค้นหา (Target Word)", font_size=28, color=ACCENT_AMBER)
             surface.blit(header_surf, header_surf.get_rect(center=(WIDTH // 2, 70)))
 
             if voice_count >= 2:
-                sub_msg = "🔊 ฟังซ้ำอีกครั้งให้ชัดเจน (รอบที่ 2/2) และจำภาพนี้ไว้ให้ดี!"
+                sub_msg = "ฟังซ้ำอีกครั้งให้ชัดเจน (รอบที่ 2/2) และจำภาพนี้ไว้ให้ดี!"
             elif voice_count == 1:
-                sub_msg = "🔊 กำลังอ่านออกเสียงภาษาอังกฤษ (รอบที่ 1/2)..."
+                sub_msg = "กำลังอ่านออกเสียงภาษาอังกฤษ (รอบที่ 1/2)..."
             else:
-                sub_msg = "🔊 เตรียมพร้อมฟังเสียงอ่านภาษาอังกฤษ..."
+                sub_msg = "เตรียมพร้อมฟังเสียงอ่านภาษาอังกฤษ..."
                 
             sub_surf = render_thai_text(sub_msg, font_size=22, color=TEXT_WHITE)
             surface.blit(sub_surf, sub_surf.get_rect(center=(WIDTH // 2, HEIGHT - 65)))

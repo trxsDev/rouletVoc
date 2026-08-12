@@ -282,14 +282,14 @@ class GestureMemoryGame:
             self.chances_left -= 1
             card.shake_offset = 14
             sound_engine.play("wrong")
-            self.feedback_msg = f"❌ ยังไม่ใช่ '{self.target_item['word']}' (เหลืออีก {self.chances_left} ครั้ง)"
+            self.feedback_msg = f"ยังไม่ใช่ '{self.target_item['word']}' (เหลืออีก {self.chances_left} ครั้ง)"
             self.feedback_color = ACCENT_ROSE
             
             if self.chances_left <= 0:
                 for c in self.cards:
                     if c.item["id"] == self.target_item["id"]:
                         c.is_flipped = True
-                self.feedback_msg = f"❌ หมดโอกาสแล้ว! คำตอบคือ '{self.target_item['word']}'"
+                self.feedback_msg = f"หมดโอกาสแล้ว! คำตอบคือ '{self.target_item['word']}'"
                 self.state = "ROUND_END"
                 self.state_timer = time.time()
 
@@ -380,7 +380,7 @@ class GestureMemoryGame:
             pygame.draw.rect(banner, self.selected_gesture["color"], (0, 0, 740, 110), width=4, border_radius=24)
             screen.blit(banner, (WIDTH // 2 - 370, HEIGHT - 135))
             
-            t1 = render_thai_text(f"ท่าที่ต้องใช้: {self.selected_gesture['emoji']} {self.selected_gesture['name']}", font_size=28, color=self.selected_gesture["color"])
+            t1 = render_thai_text(f"ท่าที่ต้องใช้: {self.selected_gesture['name']}", font_size=28, color=self.selected_gesture["color"])
             t2 = render_thai_text(self.selected_gesture["desc"], font_size=20, color=TEXT_WHITE)
             screen.blit(t1, t1.get_rect(center=(WIDTH // 2, HEIGHT - 100)))
             screen.blit(t2, t2.get_rect(center=(WIDTH // 2, HEIGHT - 60)))
@@ -395,7 +395,7 @@ class GestureMemoryGame:
             pygame.draw.rect(t_banner, ACCENT_AMBER, (0, 0, 640, 80), width=3, border_radius=20)
             screen.blit(t_banner, (WIDTH // 2 - 320, 100))
             
-            w_text = render_thai_text(f"👀 จำตำแหน่งการ์ด! หาคำว่า: '{self.target_item['word']}' ({self.target_item['en']})", font_size=26, color=ACCENT_AMBER)
+            w_text = render_thai_text(f"จำตำแหน่งการ์ด! หาคำว่า: '{self.target_item['word']}' ({self.target_item['en']})", font_size=26, color=ACCENT_AMBER)
             screen.blit(w_text, w_text.get_rect(center=(WIDTH // 2, 140)))
             
             for card in self.cards:
@@ -423,10 +423,10 @@ class GestureMemoryGame:
             pygame.draw.rect(t_banner, ACCENT_CYAN, (0, 0, 680, 85), width=3, border_radius=20)
             screen.blit(t_banner, (WIDTH // 2 - 340, 100))
             
-            target_surf = render_thai_text(f"🎯 จงหา: '{self.target_item['word']}' ({self.target_item['en']})", font_size=26, color=ACCENT_AMBER)
+            target_surf = render_thai_text(f"จงหา: '{self.target_item['word']}' ({self.target_item['en']})", font_size=26, color=ACCENT_AMBER)
             screen.blit(target_surf, target_surf.get_rect(center=(WIDTH // 2, 126)))
             
-            inst_surf = render_thai_text(f"ใช้ท่า: {self.selected_gesture['emoji']} {self.selected_gesture['name']} ค้างบนการ์ดเพื่อเปิด", font_size=18, color=self.selected_gesture["color"])
+            inst_surf = render_thai_text(f"ใช้ท่า: {self.selected_gesture['name']} ค้างบนการ์ดเพื่อเปิด", font_size=18, color=self.selected_gesture["color"])
             screen.blit(inst_surf, inst_surf.get_rect(center=(WIDTH // 2, 158)))
             
             for card in self.cards:
