@@ -117,7 +117,6 @@ class GestureMemoryGame:
                 "thai": p["thai"],
                 "color": p["color"],
                 "bg_col": p["bg_col"],
-                "emoji": p["emoji"],
                 "score": 0,
                 "words_done": 0,
                 "time_spent": 0.0

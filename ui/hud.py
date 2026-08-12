@@ -33,7 +33,7 @@ class HUD:
             team = team_scores[current_team_idx]
             # Draw Color Dot
             pygame.draw.circle(surface, team["color"], (155, 37), 8)
-            m_badge = render_thai_text(f"{team['name']} • คำที่ {team['words_done'] + 1}/{words_per_team}", font_size=22, color=team["color"])
+            m_badge = render_thai_text(f"{team['name']} - คำที่ {team['words_done'] + 1}/{words_per_team}", font_size=22, color=team["color"])
             surface.blit(m_badge, (170, 24))
             
             score_text = render_thai_text(f"แต้มทีม: {team['score']}", font_size=24, color=ACCENT_AMBER)
