@@ -53,21 +53,25 @@ def get_image(filename, target_size=None):
     if key in _image_cache:
         return _image_cache[key]
         
-    stem = os.path.splitext(filename)[0]
+    stem = os.path.splitext(os.path.basename(filename))[0]
     ext = os.path.splitext(filename)[1] or ".png"
     
-    # Priority search with macOS "Remove Background" filenames
+    # Priority search with macOS "Remove Background" filenames & transparent stems
     candidates = [
         f"พื้นหลัง {stem} ถูกเอาออก{ext}",
         f"{stem}_transparent{ext}",
+        f"{stem}{ext}",
         filename
     ]
     
-    subdirs = ["", "items", "gestures", "ui", "custom"]
+    # Prioritize specialized subdirectories first!
+    subdirs = ["items", "gestures", "ui", "custom", ""]
     search_paths = []
     for cand in candidates:
         for sub in subdirs:
-            search_paths.append(os.path.join(ASSETS_DIR, sub, cand) if sub else os.path.join(ASSETS_DIR, cand))
+            p = os.path.join(ASSETS_DIR, sub, cand) if sub else os.path.join(ASSETS_DIR, cand)
+            if p not in search_paths:
+                search_paths.append(p)
     
     for path in search_paths:
         if os.path.exists(path):
