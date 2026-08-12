@@ -57,23 +57,22 @@ class GestureClassifier:
         # Distance between thumb tip and index tip / first joint
         index_dip = landmarks[7]
         thumb_idx_dist = min(dist(thumb_tip, index_tip), dist(thumb_tip, index_dip))
-        is_pinched = (thumb_idx_dist < (0.38 * palm_size)) or (thumb_idx_dist < 48.0)
+        is_pinched = (thumb_idx_dist < (0.44 * palm_size)) or (thumb_idx_dist < 56.0)
 
         # -----------------------------------------------------
-        # 1. Thai Classical Dance "Jeeb" / PINCH (จีบนิ้ว 🤏)
-        # Thumb & Index pinched together + other 3 fingers raised/fanned gracefully
+        # 1. OK Gesture / Thai Jeeb (👌 / 🤏)
+        # Thumb & Index touching + at least 2 other fingers open/raised
         # -----------------------------------------------------
         open_fingers_count = int(mid_ext or not mid_crl) + int(rng_ext or not rng_crl) + int(pnk_ext or not pnk_crl)
-        if is_pinched:
-            # If fingers are fanned outwards/raised (Thai Jeeb) or curled (standard pinch)
-            return "PINCH", thumb_idx_dist, True
+        if is_pinched and (not mid_crl) and (open_fingers_count >= 2):
+            return "OK", thumb_idx_dist, True
 
         # -----------------------------------------------------
-        # 2. OK Gesture (👌)
+        # 2. PINCH (🤏)
+        # Thumb & Index pinched together
         # -----------------------------------------------------
-        thumb_index_touch = (thumb_idx_dist < (0.45 * palm_size)) or (thumb_idx_dist < 56.0)
-        if thumb_index_touch and (not mid_crl) and (open_fingers_count >= 2):
-            return "OK", thumb_idx_dist, True
+        if is_pinched:
+            return "PINCH", thumb_idx_dist, True
 
         # -----------------------------------------------------
         # 3. FIST (✊ / Grab)

@@ -150,7 +150,7 @@ class GestureMemoryGame:
             pass
             
         elif self.state == "TEAM_READY":
-            if self.tracking_engine.current_detected_gesture == "OK":
+            if (self.tracking_engine.current_detected_gesture in ["OK", "PINCH"]) or self.tracking_engine.is_pinched:
                 self.team_ready_charge = min(1.0, self.team_ready_charge + 0.07)
                 sound_engine.play("ready_ping")
                 if self.team_ready_charge >= 1.0:
