@@ -80,6 +80,7 @@ class GestureMemoryGame:
         self.start_new_round()
 
     def start_team_tournament(self):
+        self.mode = "TOURNAMENT"
         self.unplayed_vocab_deck = []
         self.unplayed_gesture_deck = []
         self.team_scores = []
@@ -297,13 +298,17 @@ class GestureMemoryGame:
     def draw(self, screen, bg_cam=None):
         screen.fill(BG_COLOR)
         
-        if bg_cam is not None:
+        # During COUNTDOWN: Hide camera feed completely to prevent pre-position cheating!
+        if bg_cam is not None and self.state != "COUNTDOWN":
             surf_cam = pygame.surfarray.make_surface(np.transpose(bg_cam, (1, 0, 2)))
             screen.blit(surf_cam, (0, 0))
             
-        dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        dim.fill((15, 23, 42, 110))
-        screen.blit(dim, (0, 0))
+            dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            dim.fill((15, 23, 42, 110))
+            screen.blit(dim, (0, 0))
+        elif self.state == "COUNTDOWN":
+            # Solid dark background for countdown stage
+            screen.fill((15, 23, 42))
         
         # 1. Landing Menu
         if self.state == "LANDING_MENU":
@@ -478,8 +483,8 @@ class GestureMemoryGame:
                 fb_surf = render_thai_text(self.feedback_msg, font_size=24, color=self.feedback_color)
                 screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
-        # Draw hand skeleton and cursor during active gameplay states
-        if self.state not in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
+        # Draw hand skeleton and cursor during active gameplay states (Hidden during COUNTDOWN to prevent pre-positioning!)
+        if self.state not in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD", "COUNTDOWN"]:
             HUD.draw_skeleton_and_cursor(
                 screen,
                 self.tracking_engine.hand_landmarks_screen,
