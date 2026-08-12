@@ -1,6 +1,8 @@
 import time
 import difflib
 import threading
+import numpy as np
+import sounddevice as sd
 import speech_recognition as sr
 from core.audio_engine import sound_engine
 from config.constants import ACCENT_EMERALD, ACCENT_AMBER, ACCENT_ROSE
@@ -17,6 +19,59 @@ class SpeechVerifier:
         self.is_success = False
         self.feedback_msg = ""
         self.feedback_color = ACCENT_AMBER
+        
+        # Live Mic Audio Waveform & Equalizer Bars
+        self.num_bars = 21
+        self.live_bars = [0.08] * self.num_bars
+        self.wave_buffer = [0.0] * 64
+        self.live_volume = 0.0
+        self.mic_stream = None
+        self._init_mic_stream()
+
+    def _init_mic_stream(self):
+        try:
+            self.mic_stream = sd.InputStream(
+                channels=1,
+                samplerate=16000,
+                blocksize=512,
+                callback=self._mic_stream_callback
+            )
+            self.mic_stream.start()
+        except Exception as e:
+            print("[Speech Verifier] Note: Live mic stream init:", e)
+
+    def _mic_stream_callback(self, indata, frames, time_info, status):
+        if status or not self.is_listening:
+            # Idle smooth falloff
+            for i in range(self.num_bars):
+                self.live_bars[i] = max(0.06, self.live_bars[i] * 0.90)
+            self.live_volume = max(0.0, self.live_volume * 0.90)
+            return
+
+        data = indata[:, 0]
+        # RMS volume
+        rms = float(np.sqrt(np.mean(data**2)))
+        self.live_volume = self.live_volume * 0.4 + rms * 0.6
+        
+        # Raw waveform points for oscilloscope
+        step = max(1, len(data) // 64)
+        self.wave_buffer = [float(x) for x in data[::step][:64]]
+        
+        # Compute 21 equalizer bars with peak amplitude
+        chunk_size = max(1, len(data) // self.num_bars)
+        for i in range(self.num_bars):
+            chunk = data[i * chunk_size : (i + 1) * chunk_size]
+            if len(chunk) > 0:
+                raw_amp = float(np.max(np.abs(chunk))) * 4.2
+                amp = max(0.08, min(1.0, raw_amp))
+                self.live_bars[i] = self.live_bars[i] * 0.45 + amp * 0.55
+
+    def get_live_audio_data(self):
+        return {
+            "bars": list(self.live_bars),
+            "waveform": list(self.wave_buffer),
+            "volume": self.live_volume
+        }
 
     def reset(self, target_item):
         self.is_listening = True

@@ -14,6 +14,7 @@ from core.tracking_engine import HandTrackingEngine
 from core.speech_verifier import SpeechVerifier
 from components.card import Card
 from components.roulette import RouletteWheel
+from core.system_diagnostics import SystemDiagnostics
 from ui.renderer import render_thai_text
 from ui.hud import HUD
 from ui.screens import Screens
@@ -24,7 +25,7 @@ class GestureMemoryGame:
     def __init__(self):
         # Game Mode & State
         self.mode = "FREEDOM"  # "FREEDOM" or "TOURNAMENT"
-        self.state = "LANDING_MENU"
+        self.state = "SYSTEM_DIAGNOSTICS"
         
         # Freedom & Tournament Scores
         self.freedom_score = 0
@@ -56,6 +57,8 @@ class GestureMemoryGame:
         # Core Engines
         self.tracking_engine = HandTrackingEngine()
         self.speech_verifier = SpeechVerifier()
+        self.diagnostics_mgr = SystemDiagnostics(self.tracking_engine)
+        self.diagnostics_mgr.start()
         
         # Exhaustive Decks
         self.unplayed_vocab_deck = []
@@ -146,7 +149,12 @@ class GestureMemoryGame:
         now = time.time()
         elapsed = now - self.state_timer
         
-        if self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
+        if self.state == "SYSTEM_DIAGNOSTICS":
+            if self.diagnostics_mgr.is_completed and elapsed > 2.2:
+                self.state = "LANDING_MENU"
+                self.state_timer = now
+                
+        elif self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
             pass
             
         elif self.state == "TEAM_READY":
@@ -314,6 +322,11 @@ class GestureMemoryGame:
             # Solid dark background for countdown stage
             screen.fill((15, 23, 42))
         
+        # 0. Pre-flight Hardware & Network System Diagnostics
+        if self.state == "SYSTEM_DIAGNOSTICS":
+            Screens.draw_system_diagnostics(screen, self.diagnostics_mgr)
+            return
+
         # 1. Landing Menu
         if self.state == "LANDING_MENU":
             Screens.draw_landing_menu(
@@ -471,7 +484,8 @@ class GestureMemoryGame:
                 self.speech_verifier.is_success,
                 self.speech_verifier.recognized_text,
                 self.speech_verifier.feedback_msg,
-                self.speech_verifier.feedback_color
+                self.speech_verifier.feedback_color,
+                audio_data=self.speech_verifier.get_live_audio_data()
             )
             
         elif self.state == "ROUND_END":
@@ -487,8 +501,8 @@ class GestureMemoryGame:
                 fb_surf = render_thai_text(self.feedback_msg, font_size=24, color=self.feedback_color)
                 screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
-        # Draw hand skeleton and cursor during active gameplay states (Hidden during COUNTDOWN to prevent pre-positioning!)
-        if self.state not in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD", "COUNTDOWN"]:
+        # Draw hand skeleton and cursor during active gameplay states (Hidden during COUNTDOWN/DIAGNOSTICS)
+        if self.state not in ["SYSTEM_DIAGNOSTICS", "LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD", "COUNTDOWN"]:
             HUD.draw_skeleton_and_cursor(
                 screen,
                 self.tracking_engine.hand_landmarks_screen,

@@ -10,6 +10,79 @@ from ui.renderer import render_thai_text, get_image
 
 class Screens:
     @staticmethod
+    def draw_system_diagnostics(surface, diagnostics_mgr):
+        # 1. Background Sleek Fill
+        surface.fill((15, 23, 42))
+
+        # 2. Main Diagnostic Card
+        card_w, card_h = 760, 460
+        card_x = (WIDTH - card_w) // 2
+        card_y = (HEIGHT - card_h) // 2 - 10
+
+        card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        pygame.draw.rect(card_surf, (20, 30, 48, 245), (0, 0, card_w, card_h), border_radius=26)
+        pygame.draw.rect(card_surf, (51, 65, 85, 200), (0, 0, card_w, card_h), width=2, border_radius=26)
+        surface.blit(card_surf, (card_x, card_y))
+
+        # Title & Subtitle
+        title = render_thai_text("ระบบตรวจสอบความพร้อมอุปกรณ์ (Pre-flight Check)", font_size=28, color=ACCENT_AMBER)
+        surface.blit(title, title.get_rect(center=(WIDTH // 2, card_y + 40)))
+
+        sub = render_thai_text("ตรวจสอบกล้อง, อินเทอร์เน็ต WiFi, ไมโครโฟน และระบบ AI", font_size=18, color=(148, 163, 184))
+        surface.blit(sub, sub.get_rect(center=(WIDTH // 2, card_y + 78)))
+
+        # 4 Diagnostic Step Rows
+        row_y = card_y + 120
+        row_h = 60
+        row_gap = 14
+
+        for i, step in enumerate(diagnostics_mgr.steps):
+            ry = row_y + i * (row_h + row_gap)
+            r_surf = pygame.Surface((card_w - 60, row_h), pygame.SRCALPHA)
+            
+            if step["status"] == "SUCCESS":
+                border_c = ACCENT_EMERALD
+                bg_c = (6, 78, 59, 140)
+                status_txt = "เชื่อมต่อสำเร็จ"
+                status_col = ACCENT_EMERALD
+            elif step["status"] == "WARNING":
+                border_c = ACCENT_AMBER
+                bg_c = (120, 53, 15, 120)
+                status_txt = "คำเตือน"
+                status_col = ACCENT_AMBER
+            else:
+                border_c = (51, 65, 85, 120)
+                bg_c = (15, 23, 42, 180)
+                status_txt = "กำลังตรวจสอบ..."
+                status_col = (148, 163, 184)
+
+            pygame.draw.rect(r_surf, bg_c, (0, 0, card_w - 60, row_h), border_radius=14)
+            pygame.draw.rect(r_surf, border_c, (0, 0, card_w - 60, row_h), width=2, border_radius=14)
+            surface.blit(r_surf, (card_x + 30, ry))
+
+            # Row Name & Detail
+            name_surf = render_thai_text(step["name"], font_size=19, color=TEXT_WHITE)
+            surface.blit(name_surf, (card_x + 52, ry + 10))
+
+            detail_surf = render_thai_text(step["detail"], font_size=14, color=status_col)
+            surface.blit(detail_surf, (card_x + 52, ry + 34))
+
+            # Status Badge Pill
+            badge_surf = render_thai_text(status_txt, font_size=16, color=status_col)
+            surface.blit(badge_surf, badge_surf.get_rect(right=card_x + card_w - 55, centery=ry + row_h // 2))
+
+        # Bottom Progress Bar & State
+        prog = diagnostics_mgr.get_progress()
+        p_bar_w = card_w - 60
+        p_bar_rect = pygame.Rect(card_x + 30, card_y + card_h - 45, p_bar_w, 10)
+        pygame.draw.rect(surface, (30, 41, 59), p_bar_rect, border_radius=5)
+        
+        fill_w = int(p_bar_w * prog)
+        if fill_w > 0:
+            fill_rect = pygame.Rect(card_x + 30, card_y + card_h - 45, fill_w, 10)
+            pygame.draw.rect(surface, ACCENT_EMERALD if prog >= 1.0 else ACCENT_CYAN, fill_rect, border_radius=5)
+
+    @staticmethod
     def draw_landing_menu(surface, on_freedom_click, on_tournament_click):
         mouse_pos = pygame.mouse.get_pos()
         clicked = pygame.mouse.get_pressed()[0]
