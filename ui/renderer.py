@@ -6,6 +6,7 @@ from config.constants import ASSETS_DIR
 # Global caches
 _font_cache = {}
 _image_cache = {}
+_text_surface_cache = {}
 
 def get_thai_font(size):
     if size in _font_cache:
@@ -33,6 +34,10 @@ def get_thai_font(size):
     return font
 
 def render_thai_text(text, font_size=24, color=(255, 255, 255)):
+    cache_key = (text, font_size, color)
+    if cache_key in _text_surface_cache:
+        return _text_surface_cache[cache_key]
+
     font = get_thai_font(font_size)
     dummy_img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
     draw = ImageDraw.Draw(dummy_img)
@@ -46,7 +51,12 @@ def render_thai_text(text, font_size=24, color=(255, 255, 255)):
     draw.text((8 - bbox[0], 8 - bbox[1]), text, font=font, fill=(color[0], color[1], color[2], 255))
     
     raw = img.tobytes("raw", "RGBA")
-    return pygame.image.fromstring(raw, img.size, "RGBA")
+    surf = pygame.image.fromstring(raw, img.size, "RGBA")
+    
+    if len(_text_surface_cache) > 600:
+        _text_surface_cache.clear()
+    _text_surface_cache[cache_key] = surf
+    return surf
 
 def get_image(filename, target_size=None):
     key = (filename, target_size)

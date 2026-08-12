@@ -10,7 +10,7 @@ from ui.renderer import render_thai_text, get_image
 
 class Screens:
     @staticmethod
-    def draw_setup_camera(surface, tracking_engine, on_switch_cam_cb, on_next_cb):
+    def draw_setup_camera(surface, tracking_engine, on_switch_cam_cb, on_next_cb, bg_cam=None):
         mouse_pos = pygame.mouse.get_pos()
         clicked = pygame.mouse.get_pressed()[0]
 
@@ -39,17 +39,11 @@ class Screens:
         prev_x = WIDTH // 2 - prev_w // 2
         prev_y = card_y + 105
 
-        # Draw frame if available
-        ret, frame = (False, None)
-        if tracking_engine and tracking_engine.cap and tracking_engine.cap.isOpened():
-            ret, frame = tracking_engine.cap.read()
-
-        if ret and frame is not None:
+        # Draw frame if available from main loop (Zero duplicate cap.read())
+        if bg_cam is not None:
             import cv2
-            import numpy as np
-            frame_rgb = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_BGR2RGB)
-            frame_resized = cv2.resize(frame_rgb, (prev_w, prev_h))
-            cam_surf = pygame.surfarray.make_surface(np.transpose(frame_resized, (1, 0, 2)))
+            frame_resized = cv2.resize(bg_cam, (prev_w, prev_h))
+            cam_surf = pygame.image.frombuffer(frame_resized.tobytes(), (prev_w, prev_h), "RGB")
             surface.blit(cam_surf, (prev_x, prev_y))
         else:
             prev_bg = pygame.Surface((prev_w, prev_h), pygame.SRCALPHA)

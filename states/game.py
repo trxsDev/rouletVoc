@@ -327,8 +327,9 @@ class GestureMemoryGame:
         screen.fill(BG_COLOR)
         
         # During COUNTDOWN: Hide camera feed completely to prevent pre-position cheating!
-        if bg_cam is not None and self.state != "COUNTDOWN":
-            surf_cam = pygame.surfarray.make_surface(np.transpose(bg_cam, (1, 0, 2)))
+        # High-Speed C-level Direct Buffer Blit (Zero NumPy Matrix Transposition)
+        if bg_cam is not None and self.state not in ["COUNTDOWN", "SETUP_CAMERA", "SETUP_WIFI"]:
+            surf_cam = pygame.image.frombuffer(bg_cam.tobytes(), (WIDTH, HEIGHT), "RGB")
             screen.blit(surf_cam, (0, 0))
             
             dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -344,7 +345,8 @@ class GestureMemoryGame:
                 screen,
                 self.tracking_engine,
                 on_switch_cam_cb=self.tracking_engine.switch_camera,
-                on_next_cb=lambda: (setattr(self, "state", "SETUP_WIFI"), self.check_wifi_connection())
+                on_next_cb=lambda: (setattr(self, "state", "SETUP_WIFI"), self.check_wifi_connection()),
+                bg_cam=bg_cam
             )
             return
 

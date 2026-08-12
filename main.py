@@ -35,7 +35,7 @@ def main():
                     elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
                         game.start_team_tournament()
 
-        is_gameplay_active = game.state not in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]
+        is_gameplay_active = game.state not in ["SETUP_CAMERA", "SETUP_WIFI", "LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]
         bg_cam = game.tracking_engine.process_frame(is_gameplay_active=is_gameplay_active)
         
         game.update()
