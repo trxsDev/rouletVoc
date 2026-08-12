@@ -1,10 +1,15 @@
+import sys
 import os
 import pygame
 
 # ---------------------------------------------------------
-# Base Paths
+# Base Paths (Supports PyInstaller Bundled Mode & Dev Mode)
 # ---------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 SOUNDS_DIR = os.path.join(ASSETS_DIR, "sounds")
 AUDIO_DIR = os.path.join(ASSETS_DIR, "audio")
