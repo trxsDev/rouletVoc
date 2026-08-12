@@ -4,8 +4,11 @@ import sys
 
 block_cipher = None
 
-# Base directory
-base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# Base directory (PyInstaller defines SPECPATH for spec file directory)
+try:
+    base_dir = os.path.abspath(os.path.join(SPECPATH, '..'))
+except NameError:
+    base_dir = os.path.abspath(os.getcwd())
 
 datas = [
     (os.path.join(base_dir, 'assets'), 'assets'),
