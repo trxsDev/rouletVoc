@@ -76,12 +76,16 @@ def get_image(filename, target_size=None):
     for path in search_paths:
         if os.path.exists(path):
             try:
-                surf = pygame.image.load(path).convert_alpha()
+                # Load with PIL for 100% format & codec compatibility (avoids SDL BMP decoder issue)
+                pil_img = Image.open(path).convert("RGBA")
                 if target_size:
-                    surf = pygame.transform.smoothscale(surf, target_size)
+                    pil_img = pil_img.resize(target_size, Image.Resampling.LANCZOS)
+                raw_data = pil_img.tobytes("raw", "RGBA")
+                surf = pygame.image.fromstring(raw_data, pil_img.size, "RGBA")
                 _image_cache[key] = surf
                 return surf
-            except Exception:
+            except Exception as e:
+                print(f"[Renderer] Error loading {path}: {e}")
                 pass
         
     surf = pygame.Surface(target_size if target_size else (80, 80), pygame.SRCALPHA)
