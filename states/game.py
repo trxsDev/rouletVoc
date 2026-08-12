@@ -403,20 +403,36 @@ class GestureMemoryGame:
                 card.draw(screen, show_face=True)
                 
         elif self.state == "COUNTDOWN":
-            for card in self.cards:
-                card.draw(screen, show_face=False)
-                
+            # 1. Hide cards completely (Do not draw cards during countdown)
             cd_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            cd_overlay.fill((15, 23, 42, 160))
+            cd_overlay.fill((15, 23, 42, 225))
             screen.blit(cd_overlay, (0, 0))
             
-            pulse = 1.0 + (math.sin(time.time() * 12) * 0.15)
-            cd_size = int(120 * pulse)
-            cd_surf = render_thai_text(str(self.countdown_num), font_size=cd_size, color=ACCENT_AMBER)
-            screen.blit(cd_surf, cd_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20)))
+            # 2. Glowing Circular Countdown Stage
+            now = time.time()
+            pulse = 1.0 + (math.sin(now * 14) * 0.12)
+            cx, cy = WIDTH // 2, HEIGHT // 2 - 20
             
-            sub_cd = render_thai_text("เตรียมพร้อม...", font_size=36, color=TEXT_WHITE)
-            screen.blit(sub_cd, sub_cd.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 90)))
+            # Outer expanding glow rings
+            pygame.draw.circle(screen, (245, 158, 11, 40), (cx, cy), int(130 * pulse), width=4)
+            pygame.draw.circle(screen, (245, 158, 11, 80), (cx, cy), int(105 * pulse), width=6)
+            pygame.draw.circle(screen, (30, 41, 59), (cx, cy), 85)
+            pygame.draw.circle(screen, ACCENT_AMBER, (cx, cy), 85, width=4)
+            
+            # Big Dynamic Number (3, 2, 1)
+            cd_text = str(self.countdown_num) if self.countdown_num > 0 else "GO!"
+            cd_size = int(88 * pulse) if self.countdown_num > 0 else int(72 * pulse)
+            cd_color = ACCENT_AMBER if self.countdown_num > 0 else ACCENT_EMERALD
+            cd_surf = render_thai_text(cd_text, font_size=cd_size, color=cd_color)
+            screen.blit(cd_surf, cd_surf.get_rect(center=(cx, cy)))
+            
+            # Subtitle Message
+            sub_cd = render_thai_text("เตรียมพร้อม... การ์ดกำลังจะสลับปิด!", font_size=28, color=TEXT_WHITE)
+            screen.blit(sub_cd, sub_cd.get_rect(center=(cx, cy + 130)))
+            
+            # Gesture Ready Badge
+            g_badge = render_thai_text(f"เตรียมทำท่า: {self.selected_gesture['name']}", font_size=22, color=self.selected_gesture["color"])
+            screen.blit(g_badge, g_badge.get_rect(center=(cx, cy + 175)))
             
         elif self.state == "PLAY":
             t_banner = pygame.Surface((680, 85), pygame.SRCALPHA)
