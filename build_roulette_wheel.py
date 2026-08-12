@@ -13,10 +13,6 @@ canvas = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
 draw = ImageDraw.Draw(canvas)
 
 # 1. 4 Quadrant Sectors (No text, pure vibrant themed color quadrants)
-# Wedge 0 (0° to 90°, Center 45°): จีบนิ้ว (Amber / Orange)
-# Wedge 1 (90° to 180°, Center 135°): กำมือ (Crimson Red)
-# Wedge 2 (180° to 270°, Center 225°): ชู 2 นิ้ว (Purple)
-# Wedge 3 (270° to 360°, Center 315°): แบมือ (Emerald Green)
 sectors = [
     {"idx": 0, "file": "gesture_pinch.png", "col1": (245, 158, 11, 255), "deg_start": 0, "deg_end": 90, "deg_mid": 45},
     {"idx": 1, "file": "gesture_fist.png", "col1": (239, 68, 68, 255), "deg_start": 90, "deg_end": 180, "deg_mid": 135},
@@ -38,7 +34,7 @@ for s in sectors:
     draw.line([(CX, CY), (x2, y2)], fill=(254, 240, 138, 255), width=7)
     draw.line([(CX, CY), (x2, y2)], fill=(180, 83, 9, 255), width=2)
 
-# 3. Paste 4 Pure White Circular Pods with 3D Gestures (No text)
+# 3. Paste 4 Pure White Circular Pods with Radially Rotated 3D Gestures
 assets_gestures = "/Users/theppratan/Developer/TRXS_Org/hand_gesture_game/assets/gestures"
 badge_r = 290
 
@@ -55,13 +51,21 @@ for s in sectors:
     draw.ellipse([pod_x - pod_rad, pod_y - pod_rad, pod_x + pod_rad, pod_y + pod_rad], fill=(255, 255, 255, 255), outline=(254, 240, 138, 255), width=4)
     draw.ellipse([pod_x - (pod_rad - 6), pod_y - (pod_rad - 6), pod_x + (pod_rad - 6), pod_y + (pod_rad - 6)], outline=(226, 232, 240, 255), width=2)
 
-    # Paste Gesture Icon with prominent size
+    # Rotate gesture icon to align radially with the diagonal sector angle
+    # When mid is 45°, rotate by (45° - 270°) = -225° (or 135° counter-clockwise in PIL)
+    radial_rotation_deg = (s["deg_mid"] - 270.0)
+
     g_path = os.path.join(assets_gestures, s["file"])
     if os.path.exists(g_path):
         g_img = Image.open(g_path).convert("RGBA")
         g_size = (136, 136)
         g_resized = g_img.resize(g_size, Image.Resampling.LANCZOS)
-        canvas.paste(g_resized, (pod_x - g_size[0] // 2, pod_y - g_size[1] // 2), g_resized)
+        
+        # PIL rotate is counter-clockwise, so pass -radial_rotation_deg
+        g_rotated = g_resized.rotate(-radial_rotation_deg, expand=True, resample=Image.Resampling.BICUBIC)
+        
+        gw, gh = g_rotated.size
+        canvas.paste(g_rotated, (pod_x - gw // 2, pod_y - gh // 2), g_rotated)
 
 # 4. Outer Golden Metallic Rim & LED Bulbs
 draw.ellipse([CX - R_OUTER, CY - R_OUTER, CX + R_OUTER, CY + R_OUTER], outline=(217, 119, 6, 255), width=32)
@@ -88,4 +92,4 @@ draw.ellipse([CX - 28, CY - 28, CX + 28, CY + 28], fill=(255, 255, 255, 255))
 # Save High-Definition Roulette Wheel
 target_path = "/Users/theppratan/Developer/TRXS_Org/hand_gesture_game/assets/ui/roulette_wheel.png"
 canvas.save(target_path, "PNG")
-print("Clean White-Pod Roulette Wheel without text generated successfully at:", target_path)
+print("Radially Rotated Clean White-Pod Roulette Wheel generated successfully at:", target_path)
