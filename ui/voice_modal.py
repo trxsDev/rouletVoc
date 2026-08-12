@@ -95,11 +95,11 @@ class VoiceModal:
 
         # 5. Status / Feedback Text
         if is_success:
-            st_surf = render_thai_text("🎉 ออกเสียงถูกต้อง! ได้รับ +100 คะแนน", font_size=23, color=ACCENT_EMERALD)
+            st_surf = render_thai_text("ออกเสียงถูกต้อง! ได้รับ +100 คะแนน", font_size=23, color=ACCENT_EMERALD)
         elif recognized_text:
             st_surf = render_thai_text(f"ได้ยิน: \"{recognized_text}\"...", font_size=22, color=feedback_color)
         elif is_listening:
-            st_surf = render_thai_text("🎙️ กำลังรอฟังเสียง... พูดคำศัพท์ภาษาอังกฤษใส่ไมโครโฟนได้เลย", font_size=19, color=TEXT_WHITE)
+            st_surf = render_thai_text("กำลังรอฟังเสียง... พูดคำศัพท์ภาษาอังกฤษใส่ไมโครโฟนได้เลย", font_size=19, color=TEXT_WHITE)
         else:
             st_surf = render_thai_text("เตรียมพร้อมฟังเสียง...", font_size=19, color=(148, 163, 184))
 

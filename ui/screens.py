@@ -91,7 +91,7 @@ class Screens:
             pygame.draw.rect(surface, b_col, b_rect, border_radius=12)
             pygame.draw.rect(surface, ACCENT_AMBER if is_active else CARD_BORDER, b_rect, width=2 if is_active else 1, border_radius=12)
             
-            c_label = f"📷 กล้อง {c_idx} {'(เลือกอยู่)' if is_active else ''}"
+            c_label = f"กล้อง {c_idx} {'(เลือกอยู่)' if is_active else ''}"
             c_surf = render_thai_text(c_label, font_size=16, color=t_col)
             surface.blit(c_surf, c_surf.get_rect(center=b_rect.center))
 
@@ -103,7 +103,7 @@ class Screens:
             on_next_cb()
 
         pygame.draw.rect(surface, ACCENT_EMERALD if next_hover else (16, 140, 100), next_rect, border_radius=24)
-        next_text = render_thai_text("ถัดไป: ตรวจสอบ WiFi ➔", font_size=18, color=(15, 23, 42) if next_hover else TEXT_WHITE)
+        next_text = render_thai_text("ถัดไป: ตรวจสอบ WiFi >>", font_size=18, color=(15, 23, 42) if next_hover else TEXT_WHITE)
         surface.blit(next_text, next_text.get_rect(center=next_rect.center))
 
     @staticmethod
@@ -146,15 +146,14 @@ class Screens:
         pygame.draw.rect(box_surf, box_border, (0, 0, box_w, box_h), width=2, border_radius=20)
         surface.blit(box_surf, (box_x, box_y))
 
-        # Status Icon & Header
-        stat_icon = "📶" if is_online else "⚠️"
-        stat_header = render_thai_text(f"{stat_icon} สถานะอินเทอร์เน็ต: {'เชื่อมต่อสมบูรณ์ (Online)' if is_online else 'โหมดออฟไลน์ (Offline)'}", font_size=22, color=box_border)
+        # Status Header
+        stat_header = render_thai_text(f"สถานะอินเทอร์เน็ต: {'เชื่อมต่อสมบูรณ์ (Online)' if is_online else 'โหมดออฟไลน์ (Offline)'}", font_size=22, color=box_border)
         surface.blit(stat_header, (box_x + 35, box_y + 25))
 
         # Details
-        d1 = render_thai_text(f"• สถานะระบบ: {detail_msg}", font_size=18, color=TEXT_WHITE)
-        d2 = render_thai_text(f"• ความเร็วการตอบสนอง (Ping): ~{ping_ms} ms", font_size=17, color=ACCENT_CYAN if is_online else (148, 163, 184))
-        d3 = render_thai_text("• ระบบถอดความเสียง: Google Cloud Speech Engine พร้อมใช้งาน", font_size=17, color=TEXT_WHITE if is_online else (148, 163, 184))
+        d1 = render_thai_text(f"- สถานะระบบ: {detail_msg}", font_size=18, color=TEXT_WHITE)
+        d2 = render_thai_text(f"- ความเร็วการตอบสนอง (Ping): ~{ping_ms} ms", font_size=17, color=ACCENT_CYAN if is_online else (148, 163, 184))
+        d3 = render_thai_text("- ระบบถอดความเสียง: Google Cloud Speech Engine พร้อมใช้งาน", font_size=17, color=TEXT_WHITE if is_online else (148, 163, 184))
         surface.blit(d1, (box_x + 35, box_y + 75))
         surface.blit(d2, (box_x + 35, box_y + 115))
         surface.blit(d3, (box_x + 35, box_y + 155))
@@ -166,7 +165,7 @@ class Screens:
             on_recheck_cb()
         pygame.draw.rect(surface, (30, 58, 95) if re_hover else (20, 35, 55), recheck_rect, border_radius=10)
         pygame.draw.rect(surface, ACCENT_CYAN, recheck_rect, width=1, border_radius=10)
-        re_surf = render_thai_text("🔄 ตรวจสอบใหม่", font_size=15, color=TEXT_WHITE)
+        re_surf = render_thai_text("ตรวจสอบใหม่", font_size=15, color=TEXT_WHITE)
         surface.blit(re_surf, re_surf.get_rect(center=recheck_rect.center))
 
         # 4. Navigation Buttons: Back & Start Game
@@ -179,7 +178,7 @@ class Screens:
             on_back_cb()
         pygame.draw.rect(surface, (30, 41, 59) if back_hover else (20, 30, 48), back_rect, border_radius=24)
         pygame.draw.rect(surface, CARD_BORDER, back_rect, width=2, border_radius=24)
-        back_surf = render_thai_text("◀ ย้อนกลับ (กล้อง)", font_size=17, color=TEXT_WHITE)
+        back_surf = render_thai_text("<< ย้อนกลับ (กล้อง)", font_size=17, color=TEXT_WHITE)
         surface.blit(back_surf, back_surf.get_rect(center=back_rect.center))
 
         # Next / Enter Game Button
@@ -188,7 +187,7 @@ class Screens:
         if enter_hover and clicked:
             on_next_cb()
         pygame.draw.rect(surface, ACCENT_EMERALD if enter_hover else (16, 140, 100), enter_rect, border_radius=24)
-        enter_surf = render_thai_text("เริ่มต้นเข้าสู่เกม ➔", font_size=18, color=(15, 23, 42) if enter_hover else TEXT_WHITE)
+        enter_surf = render_thai_text("เริ่มต้นเข้าสู่เกม >>", font_size=18, color=(15, 23, 42) if enter_hover else TEXT_WHITE)
         surface.blit(enter_surf, enter_surf.get_rect(center=enter_rect.center))
 
     @staticmethod

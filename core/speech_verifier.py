@@ -78,7 +78,7 @@ class SpeechVerifier:
         self.voice_attempts = 0
         self.recognized_text = ""
         self.is_success = False
-        self.feedback_msg = f"🎙️ กรุณาออกเสียง: '{target_item['en'].upper()}' ({target_item['word']})"
+        self.feedback_msg = f"กรุณาออกเสียง: '{target_item['en'].upper()}' ({target_item['word']})"
         self.feedback_color = ACCENT_AMBER
 
     def start_listening(self, target_item, on_success_cb, on_retry_cb, on_finish_cb):
@@ -117,7 +117,7 @@ class SpeechVerifier:
                 if is_correct:
                     self.is_success = True
                     sound_engine.play("correct")
-                    self.feedback_msg = f"🎉 ออกเสียงถูกต้อง! '{text}' (+100 คะแนน)"
+                    self.feedback_msg = f"ออกเสียงถูกต้อง! '{text}' (+100 คะแนน)"
                     self.feedback_color = ACCENT_EMERALD
                     on_success_cb(text)
                     time.sleep(1.4)
@@ -126,24 +126,24 @@ class SpeechVerifier:
                     self.voice_attempts += 1
                     sound_engine.play("wrong")
                     if self.voice_attempts >= 2:
-                        self.feedback_msg = f"⚠️ ได้ยิน: '{text}' (หมดโควต้าฟังเสียง ข้ามไปรอบถัดไป)"
+                        self.feedback_msg = f"ได้ยิน: '{text}' (หมดโควต้าฟังเสียง ข้ามไปรอบถัดไป)"
                         self.feedback_color = ACCENT_ROSE
                         time.sleep(1.6)
                         on_finish_cb()
                     else:
-                        self.feedback_msg = f"⚠️ ได้ยิน: '{text}' (ยังไม่ถูกต้อง ลองออกเสียงใหม่อีกครั้ง!)"
+                        self.feedback_msg = f"ได้ยิน: '{text}' (ยังไม่ถูกต้อง ลองออกเสียงใหม่อีกครั้ง!)"
                         self.feedback_color = ACCENT_AMBER
                         time.sleep(0.8)
                         on_retry_cb()
         except sr.WaitTimeoutError:
             self.voice_attempts += 1
             if self.voice_attempts >= 2:
-                self.feedback_msg = "⏱️ หมดเวลาฟังเสียง! ข้ามไปรอบถัดไป"
+                self.feedback_msg = "หมดเวลาฟังเสียง! ข้ามไปรอบถัดไป"
                 self.feedback_color = ACCENT_ROSE
                 time.sleep(1.4)
                 on_finish_cb()
             else:
-                self.feedback_msg = "⏱️ ไม่ได้ยินเสียง ลองพูดใหม่อีกครั้ง..."
+                self.feedback_msg = "ไม่ได้ยินเสียง ลองพูดใหม่อีกครั้ง..."
                 self.feedback_color = ACCENT_AMBER
                 on_retry_cb()
         except Exception as e:

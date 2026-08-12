@@ -5,7 +5,6 @@ GESTURE_MODES = [
     {
         "id": "PINCH",
         "name": "จีบนิ้ว (Jeeb / Pinch)",
-        "emoji": "🤏",
         "image_file": "gesture_pinch.png",
         "desc": "จีบนิ้วโป้งกับนิ้วชี้ติดกันแล้วกรีดกางนิ้วที่เหลือเพื่อเปิดการ์ด",
         "color": (245, 158, 11),
@@ -14,7 +13,6 @@ GESTURE_MODES = [
     {
         "id": "FIST",
         "name": "กำมือ (Fist / Grab)",
-        "emoji": "✊",
         "image_file": "gesture_fist.png",
         "desc": "กำมือเพื่อคว้าเปิดการ์ด",
         "color": (239, 68, 68),
@@ -23,7 +21,6 @@ GESTURE_MODES = [
     {
         "id": "PEACE",
         "name": "ชู 2 นิ้ว (Peace Sign)",
-        "emoji": "✌️",
         "image_file": "gesture_peace.png",
         "desc": "ชู 2 นิ้ว (ชี้+กลาง) เพื่อเปิดการ์ด",
         "color": (168, 85, 247),
@@ -32,7 +29,6 @@ GESTURE_MODES = [
     {
         "id": "PALM",
         "name": "แบมือ (Open Palm)",
-        "emoji": "🖐️",
         "image_file": "gesture_palm.png",
         "desc": "กางนิ้วมือทั้งหมดเพื่อเปิดการ์ด",
         "color": (16, 185, 129),
