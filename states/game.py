@@ -23,9 +23,14 @@ from ui.voice_modal import VoiceModal
 
 class GestureMemoryGame:
     def __init__(self):
-        # Game Mode & State
+        # Game Mode & State (2-Step Setup Wizard: Camera -> WiFi -> Mode Selection)
         self.mode = "FREEDOM"  # "FREEDOM" or "TOURNAMENT"
-        self.state = "SYSTEM_DIAGNOSTICS"
+        self.state = "SETUP_CAMERA"
+        self.wifi_info = {
+            "online": True,
+            "detail": "เชื่อมต่ออินเทอร์เน็ตสำเร็จ (Online)",
+            "ping": 15
+        }
         
         # Freedom & Tournament Scores
         self.freedom_score = 0
@@ -57,12 +62,29 @@ class GestureMemoryGame:
         # Core Engines
         self.tracking_engine = HandTrackingEngine()
         self.speech_verifier = SpeechVerifier()
-        self.diagnostics_mgr = SystemDiagnostics(self.tracking_engine)
-        self.diagnostics_mgr.start()
         
         # Exhaustive Decks
         self.unplayed_vocab_deck = []
         self.unplayed_gesture_deck = []
+
+    def check_wifi_connection(self):
+        import socket
+        t0 = time.time()
+        try:
+            socket.setdefaulttimeout(1.5)
+            socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(("8.8.8.8", 53))
+            ping_ms = int((time.time() - t0) * 1000)
+            self.wifi_info = {
+                "online": True,
+                "detail": "เชื่อมต่ออินเทอร์เน็ตสำเร็จ (Online)",
+                "ping": max(5, ping_ms)
+            }
+        except Exception:
+            self.wifi_info = {
+                "online": False,
+                "detail": "ออฟไลน์ (Speech Recognition ในเครื่อง)",
+                "ping": 999
+            }
 
     def get_next_target_item(self):
         if not self.unplayed_vocab_deck:
@@ -149,12 +171,7 @@ class GestureMemoryGame:
         now = time.time()
         elapsed = now - self.state_timer
         
-        if self.state == "SYSTEM_DIAGNOSTICS":
-            if self.diagnostics_mgr.is_completed and elapsed > 2.2:
-                self.state = "LANDING_MENU"
-                self.state_timer = now
-                
-        elif self.state in ["LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
+        if self.state in ["SETUP_CAMERA", "SETUP_WIFI", "LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]:
             pass
             
         elif self.state == "TEAM_READY":
@@ -322,12 +339,28 @@ class GestureMemoryGame:
             # Solid dark background for countdown stage
             screen.fill((15, 23, 42))
         
-        # 0. Pre-flight Hardware & Network System Diagnostics
-        if self.state == "SYSTEM_DIAGNOSTICS":
-            Screens.draw_system_diagnostics(screen, self.diagnostics_mgr)
+        # 1. Step 1/2: Camera Selection & Preview Setup
+        if self.state == "SETUP_CAMERA":
+            Screens.draw_setup_camera(
+                screen,
+                self.tracking_engine,
+                on_switch_cam_cb=self.tracking_engine.switch_camera,
+                on_next_cb=lambda: (setattr(self, "state", "SETUP_WIFI"), self.check_wifi_connection())
+            )
             return
 
-        # 1. Landing Menu
+        # 2. Step 2/2: WiFi & Network Diagnostics Setup
+        if self.state == "SETUP_WIFI":
+            Screens.draw_setup_wifi(
+                screen,
+                self.wifi_info,
+                on_recheck_cb=self.check_wifi_connection,
+                on_back_cb=lambda: setattr(self, "state", "SETUP_CAMERA"),
+                on_next_cb=lambda: setattr(self, "state", "LANDING_MENU")
+            )
+            return
+
+        # 3. Landing Menu
         if self.state == "LANDING_MENU":
             Screens.draw_landing_menu(
                 screen,
@@ -501,8 +534,8 @@ class GestureMemoryGame:
                 fb_surf = render_thai_text(self.feedback_msg, font_size=24, color=self.feedback_color)
                 screen.blit(fb_surf, fb_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
 
-        # Draw hand skeleton and cursor during active gameplay states (Hidden during COUNTDOWN/DIAGNOSTICS)
-        if self.state not in ["SYSTEM_DIAGNOSTICS", "LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD", "COUNTDOWN"]:
+        # Draw hand skeleton and cursor during active gameplay states (Hidden during setup/menu/countdown)
+        if self.state not in ["SETUP_CAMERA", "SETUP_WIFI", "LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD", "COUNTDOWN"]:
             HUD.draw_skeleton_and_cursor(
                 screen,
                 self.tracking_engine.hand_landmarks_screen,

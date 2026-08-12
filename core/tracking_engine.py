@@ -28,8 +28,22 @@ class HandTrackingEngine:
         self.is_pinched = False
         self.pinch_dist = 999.0
         
+        self.cam_index = 0
+        self.available_cams = [0]
+        
         self.setup_detector()
         self.setup_camera()
+
+    def detect_available_cameras(self):
+        found = []
+        for i in range(4):
+            c = cv2.VideoCapture(i)
+            if c.isOpened():
+                ret, frame = c.read()
+                if ret and frame is not None:
+                    found.append(i)
+                c.release()
+        return found if found else [0]
 
     def setup_detector(self):
         if not os.path.exists(MODEL_PATH):
@@ -58,16 +72,34 @@ class HandTrackingEngine:
             print("[Tracking Engine] HandLandmarker init error:", e)
 
     def setup_camera(self):
-        for idx in [1, 0, 2]:
-            cap = cv2.VideoCapture(idx)
-            if cap.isOpened():
-                ret, _ = cap.read()
-                if ret:
-                    self.cap = cap
-                    print(f"[Tracking Engine] Connected to webcam at index {idx}")
-                    return
-                cap.release()
+        self.available_cams = self.detect_available_cameras()
+        preferred_order = [1, 0, 2] if 1 in self.available_cams else [0, 1, 2]
+        
+        for idx in preferred_order:
+            if idx in self.available_cams:
+                cap = cv2.VideoCapture(idx)
+                if cap.isOpened():
+                    ret, _ = cap.read()
+                    if ret:
+                        self.cap = cap
+                        self.cam_index = idx
+                        print(f"[Tracking Engine] Connected to webcam at index {idx}")
+                        return
+                    cap.release()
         print("[Tracking Engine] Warning: No active webcam found.")
+
+    def switch_camera(self, new_index):
+        if self.cap:
+            try:
+                self.cap.release()
+            except Exception:
+                pass
+        self.cam_index = new_index
+        self.cap = cv2.VideoCapture(self.cam_index)
+        if self.cap.isOpened():
+            print(f"[Tracking Engine] Switched to webcam at index {new_index}")
+            return True
+        return False
 
     def reset_player_lock(self):
         self.locked_hand_pos = None

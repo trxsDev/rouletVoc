@@ -10,12 +10,15 @@ from ui.renderer import render_thai_text, get_image
 
 class Screens:
     @staticmethod
-    def draw_system_diagnostics(surface, diagnostics_mgr):
+    def draw_setup_camera(surface, tracking_engine, on_switch_cam_cb, on_next_cb):
+        mouse_pos = pygame.mouse.get_pos()
+        clicked = pygame.mouse.get_pressed()[0]
+
         # 1. Background Sleek Fill
         surface.fill((15, 23, 42))
 
-        # 2. Main Diagnostic Card
-        card_w, card_h = 760, 460
+        # 2. Main Card Container
+        card_w, card_h = 820, 520
         card_x = (WIDTH - card_w) // 2
         card_y = (HEIGHT - card_h) // 2 - 10
 
@@ -25,62 +28,168 @@ class Screens:
         surface.blit(card_surf, (card_x, card_y))
 
         # Title & Subtitle
-        title = render_thai_text("ระบบตรวจสอบความพร้อมอุปกรณ์ (Pre-flight Check)", font_size=28, color=ACCENT_AMBER)
+        title = render_thai_text("ขั้นตอนที่ 1/2: เลือกและปรับตำแหน่งกล้อง (Camera Setup)", font_size=26, color=ACCENT_AMBER)
+        surface.blit(title, title.get_rect(center=(WIDTH // 2, card_y + 36)))
+
+        sub = render_thai_text("โปรดตรวจสอบภาพจากกล้องและเลือกอุปกรณ์กล้องที่ต้องการใช้", font_size=17, color=(148, 163, 184))
+        surface.blit(sub, sub.get_rect(center=(WIDTH // 2, card_y + 70)))
+
+        # 3. Live Video Feed Preview Bay
+        prev_w, prev_h = 440, 275
+        prev_x = WIDTH // 2 - prev_w // 2
+        prev_y = card_y + 105
+
+        # Draw frame if available
+        ret, frame = (False, None)
+        if tracking_engine and tracking_engine.cap and tracking_engine.cap.isOpened():
+            ret, frame = tracking_engine.cap.read()
+
+        if ret and frame is not None:
+            import cv2
+            import numpy as np
+            frame_rgb = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_BGR2RGB)
+            frame_resized = cv2.resize(frame_rgb, (prev_w, prev_h))
+            cam_surf = pygame.surfarray.make_surface(np.transpose(frame_resized, (1, 0, 2)))
+            surface.blit(cam_surf, (prev_x, prev_y))
+        else:
+            prev_bg = pygame.Surface((prev_w, prev_h), pygame.SRCALPHA)
+            pygame.draw.rect(prev_bg, (10, 15, 28, 250), (0, 0, prev_w, prev_h), border_radius=16)
+            surface.blit(prev_bg, (prev_x, prev_y))
+            no_cam = render_thai_text("กำลังเปิดกล้อง...", font_size=20, color=(148, 163, 184))
+            surface.blit(no_cam, no_cam.get_rect(center=(WIDTH // 2, prev_y + prev_h // 2)))
+
+        # Frame border
+        pygame.draw.rect(surface, ACCENT_CYAN, (prev_x, prev_y, prev_w, prev_h), width=3, border_radius=16)
+
+        # 4. Camera Selection Options
+        cams = tracking_engine.available_cams if tracking_engine else [0]
+        cur_cam = tracking_engine.cam_index if tracking_engine else 0
+        
+        btn_y = prev_y + prev_h + 16
+        total_cams_w = len(cams) * 170 + (len(cams) - 1) * 14
+        start_bx = WIDTH // 2 - total_cams_w // 2
+
+        for i, c_idx in enumerate(cams):
+            bx = start_bx + i * (170 + 14)
+            b_rect = pygame.Rect(bx, btn_y, 170, 42)
+            is_active = (c_idx == cur_cam)
+            b_hover = b_rect.collidepoint(mouse_pos)
+
+            if b_hover and clicked and not is_active:
+                on_switch_cam_cb(c_idx)
+
+            if is_active:
+                b_col = ACCENT_AMBER
+                t_col = (15, 23, 42)
+            elif b_hover:
+                b_col = (30, 58, 95)
+                t_col = TEXT_WHITE
+            else:
+                b_col = (20, 35, 55)
+                t_col = (148, 163, 184)
+
+            pygame.draw.rect(surface, b_col, b_rect, border_radius=12)
+            pygame.draw.rect(surface, ACCENT_AMBER if is_active else CARD_BORDER, b_rect, width=2 if is_active else 1, border_radius=12)
+            
+            c_label = f"📷 กล้อง {c_idx} {'(เลือกอยู่)' if is_active else ''}"
+            c_surf = render_thai_text(c_label, font_size=16, color=t_col)
+            surface.blit(c_surf, c_surf.get_rect(center=b_rect.center))
+
+        # 5. Next Button
+        next_w, next_h = 240, 48
+        next_rect = pygame.Rect(WIDTH // 2 - next_w // 2, card_y + card_h - 60, next_w, next_h)
+        next_hover = next_rect.collidepoint(mouse_pos)
+        if next_hover and clicked:
+            on_next_cb()
+
+        pygame.draw.rect(surface, ACCENT_EMERALD if next_hover else (16, 140, 100), next_rect, border_radius=24)
+        next_text = render_thai_text("ถัดไป: ตรวจสอบ WiFi ➔", font_size=18, color=(15, 23, 42) if next_hover else TEXT_WHITE)
+        surface.blit(next_text, next_text.get_rect(center=next_rect.center))
+
+    @staticmethod
+    def draw_setup_wifi(surface, wifi_info, on_recheck_cb, on_back_cb, on_next_cb):
+        mouse_pos = pygame.mouse.get_pos()
+        clicked = pygame.mouse.get_pressed()[0]
+
+        # 1. Background Sleek Fill
+        surface.fill((15, 23, 42))
+
+        # 2. Main Card Container
+        card_w, card_h = 820, 500
+        card_x = (WIDTH - card_w) // 2
+        card_y = (HEIGHT - card_h) // 2 - 10
+
+        card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        pygame.draw.rect(card_surf, (20, 30, 48, 245), (0, 0, card_w, card_h), border_radius=26)
+        pygame.draw.rect(card_surf, (51, 65, 85, 200), (0, 0, card_w, card_h), width=2, border_radius=26)
+        surface.blit(card_surf, (card_x, card_y))
+
+        # Title & Subtitle
+        title = render_thai_text("ขั้นตอนที่ 2/2: ตรวจสอบการเชื่อมต่อ WiFi / Internet", font_size=26, color=ACCENT_AMBER)
         surface.blit(title, title.get_rect(center=(WIDTH // 2, card_y + 40)))
 
-        sub = render_thai_text("ตรวจสอบกล้อง, อินเทอร์เน็ต WiFi, ไมโครโฟน และระบบ AI", font_size=18, color=(148, 163, 184))
-        surface.blit(sub, sub.get_rect(center=(WIDTH // 2, card_y + 78)))
+        sub = render_thai_text("ตรวจสอบอินเทอร์เน็ตสำหรับการประมวลผลเสียง Google Speech Recognition", font_size=17, color=(148, 163, 184))
+        surface.blit(sub, sub.get_rect(center=(WIDTH // 2, card_y + 76)))
 
-        # 4 Diagnostic Step Rows
-        row_y = card_y + 120
-        row_h = 60
-        row_gap = 14
+        # 3. Connection Status Card Box
+        is_online = wifi_info.get("online", True)
+        detail_msg = wifi_info.get("detail", "เชื่อมต่ออินเทอร์เน็ตสำเร็จ (Online)")
+        ping_ms = wifi_info.get("ping", 15)
 
-        for i, step in enumerate(diagnostics_mgr.steps):
-            ry = row_y + i * (row_h + row_gap)
-            r_surf = pygame.Surface((card_w - 60, row_h), pygame.SRCALPHA)
-            
-            if step["status"] == "SUCCESS":
-                border_c = ACCENT_EMERALD
-                bg_c = (6, 78, 59, 140)
-                status_txt = "เชื่อมต่อสำเร็จ"
-                status_col = ACCENT_EMERALD
-            elif step["status"] == "WARNING":
-                border_c = ACCENT_AMBER
-                bg_c = (120, 53, 15, 120)
-                status_txt = "คำเตือน"
-                status_col = ACCENT_AMBER
-            else:
-                border_c = (51, 65, 85, 120)
-                bg_c = (15, 23, 42, 180)
-                status_txt = "กำลังตรวจสอบ..."
-                status_col = (148, 163, 184)
+        box_w, box_h = 680, 210
+        box_x = WIDTH // 2 - box_w // 2
+        box_y = card_y + 120
 
-            pygame.draw.rect(r_surf, bg_c, (0, 0, card_w - 60, row_h), border_radius=14)
-            pygame.draw.rect(r_surf, border_c, (0, 0, card_w - 60, row_h), width=2, border_radius=14)
-            surface.blit(r_surf, (card_x + 30, ry))
+        box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        pygame.draw.rect(box_surf, (12, 20, 36, 240), (0, 0, box_w, box_h), border_radius=20)
+        box_border = ACCENT_EMERALD if is_online else ACCENT_AMBER
+        pygame.draw.rect(box_surf, box_border, (0, 0, box_w, box_h), width=2, border_radius=20)
+        surface.blit(box_surf, (box_x, box_y))
 
-            # Row Name & Detail
-            name_surf = render_thai_text(step["name"], font_size=19, color=TEXT_WHITE)
-            surface.blit(name_surf, (card_x + 52, ry + 10))
+        # Status Icon & Header
+        stat_icon = "📶" if is_online else "⚠️"
+        stat_header = render_thai_text(f"{stat_icon} สถานะอินเทอร์เน็ต: {'เชื่อมต่อสมบูรณ์ (Online)' if is_online else 'โหมดออฟไลน์ (Offline)'}", font_size=22, color=box_border)
+        surface.blit(stat_header, (box_x + 35, box_y + 25))
 
-            detail_surf = render_thai_text(step["detail"], font_size=14, color=status_col)
-            surface.blit(detail_surf, (card_x + 52, ry + 34))
+        # Details
+        d1 = render_thai_text(f"• สถานะระบบ: {detail_msg}", font_size=18, color=TEXT_WHITE)
+        d2 = render_thai_text(f"• ความเร็วการตอบสนอง (Ping): ~{ping_ms} ms", font_size=17, color=ACCENT_CYAN if is_online else (148, 163, 184))
+        d3 = render_thai_text("• ระบบถอดความเสียง: Google Cloud Speech Engine พร้อมใช้งาน", font_size=17, color=TEXT_WHITE if is_online else (148, 163, 184))
+        surface.blit(d1, (box_x + 35, box_y + 75))
+        surface.blit(d2, (box_x + 35, box_y + 115))
+        surface.blit(d3, (box_x + 35, box_y + 155))
 
-            # Status Badge Pill
-            badge_surf = render_thai_text(status_txt, font_size=16, color=status_col)
-            surface.blit(badge_surf, badge_surf.get_rect(right=card_x + card_w - 55, centery=ry + row_h // 2))
+        # Recheck Button
+        recheck_rect = pygame.Rect(box_x + box_w - 200, box_y + 25, 170, 36)
+        re_hover = recheck_rect.collidepoint(mouse_pos)
+        if re_hover and clicked:
+            on_recheck_cb()
+        pygame.draw.rect(surface, (30, 58, 95) if re_hover else (20, 35, 55), recheck_rect, border_radius=10)
+        pygame.draw.rect(surface, ACCENT_CYAN, recheck_rect, width=1, border_radius=10)
+        re_surf = render_thai_text("🔄 ตรวจสอบใหม่", font_size=15, color=TEXT_WHITE)
+        surface.blit(re_surf, re_surf.get_rect(center=recheck_rect.center))
 
-        # Bottom Progress Bar & State
-        prog = diagnostics_mgr.get_progress()
-        p_bar_w = card_w - 60
-        p_bar_rect = pygame.Rect(card_x + 30, card_y + card_h - 45, p_bar_w, 10)
-        pygame.draw.rect(surface, (30, 41, 59), p_bar_rect, border_radius=5)
-        
-        fill_w = int(p_bar_w * prog)
-        if fill_w > 0:
-            fill_rect = pygame.Rect(card_x + 30, card_y + card_h - 45, fill_w, 10)
-            pygame.draw.rect(surface, ACCENT_EMERALD if prog >= 1.0 else ACCENT_CYAN, fill_rect, border_radius=5)
+        # 4. Navigation Buttons: Back & Start Game
+        btn_y = card_y + card_h - 75
+
+        # Back Button
+        back_rect = pygame.Rect(card_x + 50, btn_y, 190, 48)
+        back_hover = back_rect.collidepoint(mouse_pos)
+        if back_hover and clicked:
+            on_back_cb()
+        pygame.draw.rect(surface, (30, 41, 59) if back_hover else (20, 30, 48), back_rect, border_radius=24)
+        pygame.draw.rect(surface, CARD_BORDER, back_rect, width=2, border_radius=24)
+        back_surf = render_thai_text("◀ ย้อนกลับ (กล้อง)", font_size=17, color=TEXT_WHITE)
+        surface.blit(back_surf, back_surf.get_rect(center=back_rect.center))
+
+        # Next / Enter Game Button
+        enter_rect = pygame.Rect(card_x + card_w - 290, btn_y, 240, 48)
+        enter_hover = enter_rect.collidepoint(mouse_pos)
+        if enter_hover and clicked:
+            on_next_cb()
+        pygame.draw.rect(surface, ACCENT_EMERALD if enter_hover else (16, 140, 100), enter_rect, border_radius=24)
+        enter_surf = render_thai_text("เริ่มต้นเข้าสู่เกม ➔", font_size=18, color=(15, 23, 42) if enter_hover else TEXT_WHITE)
+        surface.blit(enter_surf, enter_surf.get_rect(center=enter_rect.center))
 
     @staticmethod
     def draw_landing_menu(surface, on_freedom_click, on_tournament_click):
