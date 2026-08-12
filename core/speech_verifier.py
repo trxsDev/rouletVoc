@@ -96,9 +96,13 @@ class SpeechVerifier:
                     self.recognizer.energy_threshold = 300
                 audio = self.recognizer.listen(source, timeout=5.0, phrase_time_limit=4.0)
                 
+                text = ""
                 try:
                     text = self.recognizer.recognize_google(audio, language="en-US")
                 except Exception:
+                    pass
+                
+                if not text:
                     try:
                         text = self.recognizer.recognize_google(audio, language="th-TH")
                     except Exception:
@@ -106,13 +110,34 @@ class SpeechVerifier:
                         
                 self.recognized_text = text
                 target_en = target_item["en"].lower()
-                aliases = target_item.get("aliases", [target_en])
+                aliases = [a.lower().strip() for a in target_item.get("aliases", [target_en])]
                 
-                is_correct = any(
-                    (t in text.lower()) or 
-                    (difflib.SequenceMatcher(None, t, text.lower()).ratio() >= 0.55)
-                    for t in aliases
-                )
+                def check_match(raw_text):
+                    cleaned = raw_text.lower().strip()
+                    if not cleaned:
+                        return False
+                    for t in aliases:
+                        if t in cleaned or cleaned in t:
+                            return True
+                        if difflib.SequenceMatcher(None, t, cleaned).ratio() >= 0.50:
+                            return True
+                        for w in cleaned.split():
+                            if difflib.SequenceMatcher(None, t, w).ratio() >= 0.50:
+                                return True
+                    return False
+
+                is_correct = check_match(text)
+                
+                # Dual-pass: If en-US didn't match, test th-TH for Thai-accented phonetic transcription
+                if not is_correct and audio:
+                    try:
+                        thai_text = self.recognizer.recognize_google(audio, language="th-TH")
+                        if check_match(thai_text):
+                            text = thai_text
+                            self.recognized_text = text
+                            is_correct = True
+                    except Exception:
+                        pass
                 
                 if is_correct:
                     self.is_success = True
