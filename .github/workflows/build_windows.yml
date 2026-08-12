@@ -1,0 +1,76 @@
+name: Build Windows .exe Installer
+
+# Quota-Optimized Triggers:
+# 1. Manual button in GitHub Actions tab (Run workflow)
+# 2. Release Tag push (e.g. git push origin v1.0.0)
+# 3. Regular commit on 'main' ONLY IF commit message contains '[build]' or '[release]'
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. 1.0.0)'
+        required: false
+        default: '1.0.0'
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+
+jobs:
+  build-windows:
+    # Skip standard commits unless explicitly tagged with [build] or [release] or triggered manually
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      contains(github.event.head_commit.message, '[build]') ||
+      contains(github.event.head_commit.message, '[release]')
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Download MediaPipe Hand Landmarker Model (if missing)
+        run: |
+          python -c "
+          import os, urllib.request
+          url = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
+          if not os.path.exists('hand_landmarker.task'):
+              print('Downloading hand_landmarker.task...')
+              urllib.request.urlretrieve(url, 'hand_landmarker.task')
+          "
+
+      - name: Build Standalone .exe with PyInstaller
+        run: |
+          pyinstaller --clean build_scripts/build_win.spec
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+
+      - name: Build Single-File Setup Installer with Inno Setup
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build_scripts/installer_config.iss
+
+      - name: Upload Installer (.exe) Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RouletVoc-Windows-Setup-EXE
+          path: dist/*_Setup_*.exe
+          retention-days: 14
