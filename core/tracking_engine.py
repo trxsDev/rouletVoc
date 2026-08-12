@@ -34,10 +34,28 @@ class HandTrackingEngine:
         self.setup_detector()
         self.setup_camera()
 
+    @staticmethod
+    def _open_capture(idx):
+        import sys
+        if sys.platform.startswith("win"):
+            # On Windows, DirectShow (CAP_DSHOW) is fast, reliable, and prevents driver hangs
+            cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                cap.set(cv2.CAP_PROP_FPS, 30)
+                return cap
+        cap = cv2.VideoCapture(idx)
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+        return cap
+
     def detect_available_cameras(self):
         found = []
         for i in range(4):
-            c = cv2.VideoCapture(i)
+            c = self._open_capture(i)
             if c.isOpened():
                 ret, frame = c.read()
                 if ret and frame is not None:
@@ -77,7 +95,7 @@ class HandTrackingEngine:
         
         for idx in preferred_order:
             if idx in self.available_cams:
-                cap = cv2.VideoCapture(idx)
+                cap = self._open_capture(idx)
                 if cap.isOpened():
                     ret, _ = cap.read()
                     if ret:
@@ -95,7 +113,7 @@ class HandTrackingEngine:
             except Exception:
                 pass
         self.cam_index = new_index
-        self.cap = cv2.VideoCapture(self.cam_index)
+        self.cap = self._open_capture(self.cam_index)
         if self.cap.isOpened():
             print(f"[Tracking Engine] Switched to webcam at index {new_index}")
             return True
@@ -107,6 +125,7 @@ class HandTrackingEngine:
         self.last_player_seen_time = 0.0
 
     def process_frame(self, is_gameplay_active=True):
+        import numpy as np
         self.hand_landmarks_screen = []
 
         if not self.cap or not self.cap.isOpened():
@@ -115,7 +134,7 @@ class HandTrackingEngine:
             return None
 
         ret, frame = self.cap.read()
-        if not ret:
+        if not ret or frame is None:
             self.cursor_pos = [-1000, -1000]
             self.current_detected_gesture = "NONE"
             return None
@@ -127,7 +146,7 @@ class HandTrackingEngine:
         if not is_gameplay_active:
             self.cursor_pos = [-1000, -1000]
             self.current_detected_gesture = "NONE"
-            return cv2.resize(rgb_frame, (WIDTH, HEIGHT))
+            return np.ascontiguousarray(cv2.resize(rgb_frame, (WIDTH, HEIGHT)))
 
         timestamp_ms = int(time.time() * 1000)
         if timestamp_ms <= self._last_timestamp_ms:
@@ -204,4 +223,4 @@ class HandTrackingEngine:
             self.cursor_pos = [-1000, -1000]
             self.current_detected_gesture = "NONE"
 
-        return cv2.resize(rgb_frame, (WIDTH, HEIGHT))
+        return np.ascontiguousarray(cv2.resize(rgb_frame, (WIDTH, HEIGHT)))
