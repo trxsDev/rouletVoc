@@ -10,9 +10,9 @@ from ui.renderer import render_thai_text, get_image
 
 class Screens:
     @staticmethod
-    def draw_setup_camera(surface, tracking_engine, on_switch_cam_cb, on_next_cb, bg_cam=None):
+    def draw_setup_camera(surface, tracking_engine, on_switch_cam_cb, on_next_cb, bg_cam=None, mouse_clicked=False):
         mouse_pos = pygame.mouse.get_pos()
-        clicked = pygame.mouse.get_pressed()[0]
+        clicked = mouse_clicked
 
         # 1. Background Sleek Fill
         surface.fill((15, 23, 42))
@@ -101,9 +101,9 @@ class Screens:
         surface.blit(next_text, next_text.get_rect(center=next_rect.center))
 
     @staticmethod
-    def draw_setup_wifi(surface, wifi_info, on_recheck_cb, on_back_cb, on_next_cb):
+    def draw_setup_wifi(surface, wifi_info, on_recheck_cb, on_back_cb, on_next_cb, mouse_clicked=False):
         mouse_pos = pygame.mouse.get_pos()
-        clicked = pygame.mouse.get_pressed()[0]
+        clicked = mouse_clicked
 
         # 1. Background Sleek Fill
         surface.fill((15, 23, 42))
@@ -185,9 +185,9 @@ class Screens:
         surface.blit(enter_surf, enter_surf.get_rect(center=enter_rect.center))
 
     @staticmethod
-    def draw_landing_menu(surface, on_freedom_click, on_tournament_click):
+    def draw_landing_menu(surface, on_freedom_click, on_tournament_click, mouse_clicked=False):
         mouse_pos = pygame.mouse.get_pos()
-        clicked = pygame.mouse.get_pressed()[0]
+        clicked = mouse_clicked
 
         # Sleek Title Card
         title_surf = render_thai_text("ROULETVOC", font_size=58, color=ACCENT_AMBER)
@@ -255,9 +255,9 @@ class Screens:
                 on_tournament_click()
 
     @staticmethod
-    def draw_team_setup(surface, num_teams, words_per_team, on_teams_change, on_words_change, on_start_click, on_back_click):
+    def draw_team_setup(surface, num_teams, words_per_team, on_teams_change, on_words_change, on_start_click, on_back_click, mouse_clicked=False):
         mouse_pos = pygame.mouse.get_pos()
-        clicked = pygame.mouse.get_pressed()[0]
+        clicked = mouse_clicked
 
         title = render_thai_text("ตั้งค่าการแข่งขันแบบทีม (Team Battle Setup)", font_size=32, color=ACCENT_AMBER)
         surface.blit(title, title.get_rect(center=(WIDTH // 2, 70)))
@@ -380,11 +380,11 @@ class Screens:
         surface.blit(pct_surf, pct_surf.get_rect(center=(cx, cy + 38)))
 
     @staticmethod
-    def draw_podium_dashboard(surface, team_scores, on_replay_click, on_menu_click):
+    def draw_podium_dashboard(surface, ranked_teams, on_replay_click, on_menu_click, mouse_clicked=False):
         mouse_pos = pygame.mouse.get_pos()
-        clicked = pygame.mouse.get_pressed()[0]
+        clicked = mouse_clicked
 
-        ranked_teams = sorted(team_scores, key=lambda t: (t["score"], -t["time_spent"]), reverse=True)
+        ranked_teams = sorted(ranked_teams, key=lambda t: (t["score"], -t["time_spent"]), reverse=True)
 
         title = render_thai_text("สรุปผลการแข่งขัน (Tournament Podium)", font_size=36, color=ACCENT_AMBER)
         surface.blit(title, title.get_rect(center=(WIDTH // 2, 55)))

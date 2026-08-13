@@ -14,15 +14,22 @@ def main():
     running = True
 
     while running:
+        mouse_clicked = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    mouse_clicked = True
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     if game.state in ["LANDING_MENU", "PODIUM_DASHBOARD"]:
                         running = False
                     else:
                         game.state = "LANDING_MENU"
+                elif event.key == pygame.K_m:
+                    game.debug_mouse_mode = not game.debug_mouse_mode
+                    print(f"[QA Debug] Mouse control debug mode: {game.debug_mouse_mode}")
                 elif game.state == "TEAM_SETUP":
                     if event.key == pygame.K_LEFT and game.num_teams > 2:
                         game.num_teams -= 1
@@ -38,8 +45,8 @@ def main():
         is_gameplay_active = game.state not in ["SETUP_CAMERA", "SETUP_WIFI", "LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]
         bg_cam = game.tracking_engine.process_frame(is_gameplay_active=is_gameplay_active)
         
-        game.update()
-        game.draw(screen, bg_cam)
+        game.update(mouse_clicked)
+        game.draw(screen, bg_cam, mouse_clicked)
 
         pygame.display.flip()
         clock.tick(FPS)

@@ -89,6 +89,13 @@ class SpeechVerifier:
         ).start()
 
     def _listen_worker(self, target_item, on_success_cb, on_retry_cb, on_finish_cb):
+        # Stop sounddevice live stream to prevent PyAudio lock contention on Windows
+        if self.mic_stream:
+            try:
+                self.mic_stream.stop()
+            except Exception as e:
+                print("[Speech Verifier] Error stopping live mic stream:", e)
+
         try:
             with sr.Microphone() as source:
                 self.recognizer.adjust_for_ambient_noise(source, duration=0.6)
@@ -179,3 +186,9 @@ class SpeechVerifier:
             on_finish_cb()
         finally:
             self.is_listening = False
+            # Restart sounddevice live stream
+            if self.mic_stream:
+                try:
+                    self.mic_stream.start()
+                except Exception as e:
+                    print("[Speech Verifier] Error restarting live mic stream:", e)
