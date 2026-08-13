@@ -100,10 +100,10 @@ jobs:
         run: pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2
 
       - name: Upload Installer to Google Drive
-        if: secrets.GOOGLE_DRIVE_REFRESH_TOKEN != ''
         env:
           GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
           GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        if: ${{ env.GOOGLE_DRIVE_REFRESH_TOKEN != '' }}
         run: python build_scripts/upload_to_drive.py
