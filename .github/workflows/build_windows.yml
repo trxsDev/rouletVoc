@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. 1.0.0)'
+        description: 'Override version (leave empty to use version.py)'
         required: false
-        default: '1.0.0'
+        default: ''
   push:
     tags:
       - 'v*'
@@ -33,6 +33,24 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Read Version from version.py
+        id: version
+        shell: bash
+        run: |
+          # Priority: workflow_dispatch input > version.py > git tag
+          INPUT_VER="${{ github.event.inputs.version }}"
+          if [ -n "$INPUT_VER" ]; then
+            VER="$INPUT_VER"
+          elif [ -f version.py ]; then
+            VER=$(python -c "exec(open('version.py').read()); print(__version__)")
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VER="${GITHUB_REF#refs/tags/v}"
+          else
+            VER="0.0.0-dev"
+          fi
+          echo "APP_VERSION=$VER" >> $GITHUB_ENV
+          echo "📦 Building version: $VER"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -66,7 +84,7 @@ jobs:
 
       - name: Build Single-File Setup Installer with Inno Setup
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build_scripts/installer_config.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVer=${{ env.APP_VERSION }} build_scripts/installer_config.iss
 
       - name: Upload Installer (.exe) Artifact
         uses: actions/upload-artifact@v4
