@@ -94,14 +94,16 @@ jobs:
           retention-days: 14
 
       # ── Auto-Upload to Google Drive ──────────────────────────
-      # Requires GitHub Secrets: GOOGLE_SERVICE_ACCOUNT_KEY, GOOGLE_DRIVE_FOLDER_ID
+      # Requires GitHub Secrets: GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN, GOOGLE_DRIVE_FOLDER_ID
       # See build_scripts/upload_to_drive.py for details
       - name: Install Google Drive Upload Dependencies
-        run: pip install google-api-python-client google-auth
+        run: pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2
 
       - name: Upload Installer to Google Drive
-        if: env.GOOGLE_SERVICE_ACCOUNT_KEY != ''
+        if: secrets.GOOGLE_DRIVE_REFRESH_TOKEN != ''
         env:
-          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
+          GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
+          GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
         run: python build_scripts/upload_to_drive.py

@@ -1,9 +1,11 @@
 """
 Upload built RouletVoc installer (.exe) to Google Drive.
 
-Uses a Google Service Account for authentication.
+Uses Google Drive OAuth 2.0 User Credentials (via Refresh Token).
 Required environment variables:
-  - GOOGLE_SERVICE_ACCOUNT_KEY: JSON string of the service account key
+  - GOOGLE_DRIVE_CLIENT_ID: OAuth Client ID
+  - GOOGLE_DRIVE_CLIENT_SECRET: OAuth Client Secret
+  - GOOGLE_DRIVE_REFRESH_TOKEN: OAuth Refresh Token
   - GOOGLE_DRIVE_FOLDER_ID: Target Google Drive folder ID
 
 Behavior:
@@ -14,10 +16,9 @@ Behavior:
 
 import os
 import sys
-import json
 import glob
 
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
@@ -42,23 +43,25 @@ def get_installer_path():
 
 
 def authenticate():
-    """Authenticate with Google Drive API using Service Account."""
-    creds_json = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
-    if not creds_json:
-        print('[ERROR] GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set.')
-        print('        Add it as a GitHub Secret with the JSON key file contents.')
+    """Authenticate with Google Drive API using OAuth 2.0 User Credentials."""
+    client_id = os.environ.get('GOOGLE_DRIVE_CLIENT_ID')
+    client_secret = os.environ.get('GOOGLE_DRIVE_CLIENT_SECRET')
+    refresh_token = os.environ.get('GOOGLE_DRIVE_REFRESH_TOKEN')
+
+    if not all([client_id, client_secret, refresh_token]):
+        print('[ERROR] Missing OAuth environment variables (CLIENT_ID, CLIENT_SECRET, or REFRESH_TOKEN).')
+        print('        Make sure they are configured as Repository Secrets in GitHub.')
         sys.exit(1)
 
-    try:
-        creds_info = json.loads(creds_json)
-    except json.JSONDecodeError as e:
-        print(f'[ERROR] Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY as JSON: {e}')
-        sys.exit(1)
-
-    creds = service_account.Credentials.from_service_account_info(
-        creds_info,
-        scopes=['https://www.googleapis.com/auth/drive']
+    # Reconstruct credentials using Refresh Token
+    creds = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret
     )
+    
     return build('drive', 'v3', credentials=creds)
 
 
@@ -71,12 +74,15 @@ def upload_to_drive(service, filepath, folder_id):
     print(f'[FOLDER] Target folder ID: {folder_id}')
 
     # Check if a file with the same name already exists
+    # supportsAllDrives=True is used to ensure compatibility
     query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
     existing = service.files().list(
         q=query,
         spaces='drive',
         fields='files(id, name)',
-        pageSize=1
+        pageSize=1,
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
     ).execute()
 
     media = MediaFileUpload(
@@ -93,7 +99,8 @@ def upload_to_drive(service, filepath, folder_id):
         updated = service.files().update(
             fileId=file_id,
             media_body=media,
-            fields='id, name, webViewLink'
+            fields='id, name, webViewLink',
+            supportsAllDrives=True
         ).execute()
 
         print(f'[OK] Updated successfully: {updated.get("name")}')
@@ -108,7 +115,8 @@ def upload_to_drive(service, filepath, folder_id):
         created = service.files().create(
             body=file_metadata,
             media_body=media,
-            fields='id, name, webViewLink'
+            fields='id, name, webViewLink',
+            supportsAllDrives=True
         ).execute()
 
         print(f'[OK] Uploaded successfully: {created.get("name")}')
@@ -126,7 +134,7 @@ def upload_to_drive(service, filepath, folder_id):
 
 def main():
     print('=' * 60)
-    print('RouletVoc -- Google Drive Auto-Upload')
+    print('RouletVoc -- Google Drive Auto-Upload (OAuth 2.0)')
     print('=' * 60)
 
     # 1. Validate environment
