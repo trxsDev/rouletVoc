@@ -74,3 +74,16 @@ jobs:
           name: RouletVoc-Windows-Setup-EXE
           path: dist/*_Setup_*.exe
           retention-days: 14
+
+      # ── Auto-Upload to Google Drive ──────────────────────────
+      # Requires GitHub Secrets: GOOGLE_SERVICE_ACCOUNT_KEY, GOOGLE_DRIVE_FOLDER_ID
+      # See build_scripts/upload_to_drive.py for details
+      - name: Install Google Drive Upload Dependencies
+        run: pip install google-api-python-client google-auth
+
+      - name: Upload Installer to Google Drive
+        if: env.GOOGLE_SERVICE_ACCOUNT_KEY != ''
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: python build_scripts/upload_to_drive.py
