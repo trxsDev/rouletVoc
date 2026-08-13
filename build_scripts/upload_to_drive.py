@@ -45,14 +45,14 @@ def authenticate():
     """Authenticate with Google Drive API using Service Account."""
     creds_json = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY')
     if not creds_json:
-        print('❌ ERROR: GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set.')
-        print('   Add it as a GitHub Secret with the JSON key file contents.')
+        print('[ERROR] GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set.')
+        print('        Add it as a GitHub Secret with the JSON key file contents.')
         sys.exit(1)
 
     try:
         creds_info = json.loads(creds_json)
     except json.JSONDecodeError as e:
-        print(f'❌ ERROR: Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY as JSON: {e}')
+        print(f'[ERROR] Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY as JSON: {e}')
         sys.exit(1)
 
     creds = service_account.Credentials.from_service_account_info(
@@ -67,8 +67,8 @@ def upload_to_drive(service, filepath, folder_id):
     filename = os.path.basename(filepath)
     file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
 
-    print(f'📦 File: {filename} ({file_size_mb:.1f} MB)')
-    print(f'📁 Target folder ID: {folder_id}')
+    print(f'[FILE] {filename} ({file_size_mb:.1f} MB)')
+    print(f'[FOLDER] Target folder ID: {folder_id}')
 
     # Check if a file with the same name already exists
     query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
@@ -88,7 +88,7 @@ def upload_to_drive(service, filepath, folder_id):
     if existing.get('files'):
         # Update existing file (keeps the same link, no duplicates)
         file_id = existing['files'][0]['id']
-        print(f'🔄 Found existing file (ID: {file_id}), updating...')
+        print(f'[UPDATE] Found existing file (ID: {file_id}), updating...')
 
         updated = service.files().update(
             fileId=file_id,
@@ -96,7 +96,7 @@ def upload_to_drive(service, filepath, folder_id):
             fields='id, name, webViewLink'
         ).execute()
 
-        print(f'✅ Updated successfully: {updated.get("name")}')
+        print(f'[OK] Updated successfully: {updated.get("name")}')
         file_id = updated['id']
     else:
         # Create new file
@@ -111,49 +111,49 @@ def upload_to_drive(service, filepath, folder_id):
             fields='id, name, webViewLink'
         ).execute()
 
-        print(f'✅ Uploaded successfully: {created.get("name")}')
+        print(f'[OK] Uploaded successfully: {created.get("name")}')
         file_id = created['id']
 
     # Print the shareable link
     view_link = f'https://drive.google.com/file/d/{file_id}/view'
-    print(f'')
-    print(f'🔗 Google Drive link:')
-    print(f'   {view_link}')
-    print(f'')
+    print('')
+    print('[LINK] Google Drive link:')
+    print(f'       {view_link}')
+    print('')
 
     return file_id
 
 
 def main():
     print('=' * 60)
-    print('🚀 RouletVoc — Google Drive Auto-Upload')
+    print('RouletVoc -- Google Drive Auto-Upload')
     print('=' * 60)
 
     # 1. Validate environment
     folder_id = os.environ.get('GOOGLE_DRIVE_FOLDER_ID')
     if not folder_id:
-        print('❌ ERROR: GOOGLE_DRIVE_FOLDER_ID environment variable is not set.')
-        print('   Add it as a GitHub Secret with your Drive folder ID.')
+        print('[ERROR] GOOGLE_DRIVE_FOLDER_ID environment variable is not set.')
+        print('        Add it as a GitHub Secret with your Drive folder ID.')
         sys.exit(1)
 
     # 2. Find the installer
     installer_path = get_installer_path()
     if not installer_path:
-        print('❌ ERROR: No installer .exe found in dist/ directory.')
-        print('   Make sure PyInstaller and Inno Setup ran successfully.')
+        print('[ERROR] No installer .exe found in dist/ directory.')
+        print('        Make sure PyInstaller and Inno Setup ran successfully.')
         sys.exit(1)
 
-    print(f'📍 Found installer: {installer_path}')
+    print(f'[INFO] Found installer: {installer_path}')
 
     # 3. Authenticate
     service = authenticate()
-    print('🔑 Authenticated with Google Drive API')
+    print('[OK] Authenticated with Google Drive API')
 
     # 4. Upload
     upload_to_drive(service, installer_path, folder_id)
 
     print('=' * 60)
-    print('🎉 Done! Installer is now available on Google Drive.')
+    print('[DONE] Installer is now available on Google Drive.')
     print('=' * 60)
 
 
