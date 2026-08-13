@@ -44,9 +44,9 @@ def get_installer_path():
 
 def authenticate():
     """Authenticate with Google Drive API using OAuth 2.0 User Credentials."""
-    client_id = os.environ.get('GOOGLE_DRIVE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_DRIVE_CLIENT_SECRET')
-    refresh_token = os.environ.get('GOOGLE_DRIVE_REFRESH_TOKEN')
+    client_id = os.environ.get('GOOGLE_DRIVE_CLIENT_ID', '').strip()
+    client_secret = os.environ.get('GOOGLE_DRIVE_CLIENT_SECRET', '').strip()
+    refresh_token = os.environ.get('GOOGLE_DRIVE_REFRESH_TOKEN', '').strip()
 
     if not all([client_id, client_secret, refresh_token]):
         print('[ERROR] Missing OAuth environment variables (CLIENT_ID, CLIENT_SECRET, or REFRESH_TOKEN).')
@@ -71,7 +71,9 @@ def upload_to_drive(service, filepath, folder_id):
     file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
 
     print(f'[FILE] {filename} ({file_size_mb:.1f} MB)')
-    print(f'[FOLDER] Target folder ID: {folder_id}')
+    print(f'[FOLDER] Target folder ID length: {len(folder_id)}')
+    if len(folder_id) > 6:
+        print(f'[FOLDER] Target folder ID starts with: {folder_id[:3]}...{folder_id[-3:]}')
 
     # Check if a file with the same name already exists
     # supportsAllDrives=True is used to ensure compatibility
@@ -138,7 +140,7 @@ def main():
     print('=' * 60)
 
     # 1. Validate environment
-    folder_id = os.environ.get('GOOGLE_DRIVE_FOLDER_ID')
+    folder_id = os.environ.get('GOOGLE_DRIVE_FOLDER_ID', '').strip()
     if not folder_id:
         print('[ERROR] GOOGLE_DRIVE_FOLDER_ID environment variable is not set.')
         print('        Add it as a GitHub Secret with your Drive folder ID.')
