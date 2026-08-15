@@ -386,11 +386,11 @@ class Screens:
 
         ranked_teams = sorted(ranked_teams, key=lambda t: (t["score"], -t["time_spent"]), reverse=True)
 
-        title = render_thai_text("สรุปผลการแข่งขัน (Tournament Podium)", font_size=36, color=ACCENT_AMBER)
-        surface.blit(title, title.get_rect(center=(WIDTH // 2, 55)))
+        title = render_thai_text("สรุปผลการแข่งขัน (Tournament Podium)", font_size=34, color=ACCENT_AMBER)
+        surface.blit(title, title.get_rect(center=(WIDTH // 2, 45)))
 
         # Top 3 Podium Cards
-        podium_y = 110
+        podium_y = 85
         top_count = min(3, len(ranked_teams))
         col_w = 210
         gap = 20
@@ -398,7 +398,7 @@ class Screens:
 
         podium_order = [1, 0, 2] if top_count >= 3 else ([0, 1] if top_count == 2 else [0])
         rank_labels = ["2nd Place", "1st WINNER", "3rd Place"] if top_count >= 3 else (["1st WINNER", "2nd Place"] if top_count == 2 else ["1st WINNER"])
-        heights = [190, 220, 175] if top_count >= 3 else ([220, 190] if top_count == 2 else [220])
+        heights = [170, 200, 155] if top_count >= 3 else ([200, 170] if top_count == 2 else [200])
 
         for pos_idx, team_idx in enumerate(podium_order):
             if team_idx >= len(ranked_teams):
@@ -406,75 +406,76 @@ class Screens:
             team = ranked_teams[team_idx]
             card_x = start_x + pos_idx * (col_w + gap)
             card_h = heights[pos_idx]
-            card_y = podium_y + (220 - card_h)
+            card_y = podium_y + (200 - card_h)
 
             p_surf = pygame.Surface((col_w, card_h), pygame.SRCALPHA)
             bg = (245, 158, 11, 45) if team_idx == 0 else (30, 41, 59, 230)
             b_col = ACCENT_AMBER if team_idx == 0 else CARD_BORDER
-            pygame.draw.rect(p_surf, bg, (0, 0, col_w, card_h), border_radius=18)
-            pygame.draw.rect(p_surf, b_col, (0, 0, col_w, card_h), width=3 if team_idx == 0 else 1, border_radius=18)
+            pygame.draw.rect(p_surf, bg, (0, 0, col_w, card_h), border_radius=16)
+            pygame.draw.rect(p_surf, b_col, (0, 0, col_w, card_h), width=3 if team_idx == 0 else 1, border_radius=16)
             surface.blit(p_surf, (card_x, card_y))
 
-            r_label = render_thai_text(rank_labels[pos_idx], font_size=18, color=ACCENT_AMBER if team_idx == 0 else TEXT_WHITE)
-            surface.blit(r_label, r_label.get_rect(center=(card_x + col_w // 2, card_y + 24)))
+            r_label = render_thai_text(rank_labels[pos_idx], font_size=17, color=ACCENT_AMBER if team_idx == 0 else TEXT_WHITE)
+            surface.blit(r_label, r_label.get_rect(center=(card_x + col_w // 2, card_y + 22)))
 
-            t_name = render_thai_text(team["name"], font_size=20, color=team["color"])
-            surface.blit(t_name, t_name.get_rect(center=(card_x + col_w // 2, card_y + 60)))
+            t_name = render_thai_text(team["name"], font_size=19, color=team["color"])
+            surface.blit(t_name, t_name.get_rect(center=(card_x + col_w // 2, card_y + 54)))
 
-            s_text = render_thai_text(f"{team['score']} คะแนน", font_size=22, color=ACCENT_AMBER)
-            surface.blit(s_text, s_text.get_rect(center=(card_x + col_w // 2, card_y + 100)))
+            s_text = render_thai_text(f"{team['score']} คะแนน", font_size=20, color=ACCENT_AMBER)
+            surface.blit(s_text, s_text.get_rect(center=(card_x + col_w // 2, card_y + 90)))
 
-            tm_text = render_thai_text(f"เวลา {team['time_spent']:.1f} วินาที", font_size=16, color=(148, 163, 184))
-            surface.blit(tm_text, tm_text.get_rect(center=(card_x + col_w // 2, card_y + 135)))
+            tm_text = render_thai_text(f"เวลา {team['time_spent']:.1f} วินาที", font_size=15, color=(148, 163, 184))
+            surface.blit(tm_text, tm_text.get_rect(center=(card_x + col_w // 2, card_y + 122)))
 
         # Full Leaderboard Table
-        table_y = 355
-        th_surf = pygame.Surface((700, 32), pygame.SRCALPHA)
+        table_y = 300
+        th_surf = pygame.Surface((700, 30), pygame.SRCALPHA)
         th_surf.fill((30, 41, 59, 240))
         surface.blit(th_surf, (WIDTH // 2 - 350, table_y))
 
-        th1 = render_thai_text("อันดับ", font_size=16, color=(148, 163, 184))
-        th2 = render_thai_text("ทีม", font_size=16, color=(148, 163, 184))
-        th3 = render_thai_text("คะแนน", font_size=16, color=(148, 163, 184))
-        th4 = render_thai_text("เวลาที่ใช้", font_size=16, color=(148, 163, 184))
+        th1 = render_thai_text("อันดับ", font_size=15, color=(148, 163, 184))
+        th2 = render_thai_text("ทีม", font_size=15, color=(148, 163, 184))
+        th3 = render_thai_text("คะแนน", font_size=15, color=(148, 163, 184))
+        th4 = render_thai_text("เวลาที่ใช้", font_size=15, color=(148, 163, 184))
 
-        surface.blit(th1, (WIDTH // 2 - 320, table_y + 4))
-        surface.blit(th2, (WIDTH // 2 - 190, table_y + 4))
-        surface.blit(th3, (WIDTH // 2 + 40, table_y + 4))
-        surface.blit(th4, (WIDTH // 2 + 210, table_y + 4))
+        surface.blit(th1, (WIDTH // 2 - 320, table_y + 3))
+        surface.blit(th2, (WIDTH // 2 - 190, table_y + 3))
+        surface.blit(th3, (WIDTH // 2 + 40, table_y + 3))
+        surface.blit(th4, (WIDTH // 2 + 210, table_y + 3))
 
         for i, team in enumerate(ranked_teams):
-            row_y = table_y + 38 + i * 34
-            row_surf = pygame.Surface((700, 30), pygame.SRCALPHA)
+            row_y = table_y + 34 + i * 30
+            row_surf = pygame.Surface((700, 26), pygame.SRCALPHA)
             bg = (245, 158, 11, 35) if i == 0 else (20, 30, 48, 200)
-            pygame.draw.rect(row_surf, bg, (0, 0, 700, 30), border_radius=6)
+            pygame.draw.rect(row_surf, bg, (0, 0, 700, 26), border_radius=6)
             surface.blit(row_surf, (WIDTH // 2 - 350, row_y))
 
             r_label = f"#{i+1}" if i >= 3 else ["1st", "2nd", "3rd"][i]
-            td1 = render_thai_text(r_label, font_size=16, color=TEXT_WHITE)
-            td2 = render_thai_text(team["name"], font_size=16, color=team["color"])
-            td3 = render_thai_text(f"{team['score']} คะแนน", font_size=16, color=ACCENT_AMBER)
-            td4 = render_thai_text(f"{team['time_spent']:.1f} วินาที", font_size=16, color=(148, 163, 184))
+            td1 = render_thai_text(r_label, font_size=15, color=TEXT_WHITE)
+            td2 = render_thai_text(team["name"], font_size=15, color=team["color"])
+            td3 = render_thai_text(f"{team['score']} คะแนน", font_size=15, color=ACCENT_AMBER)
+            td4 = render_thai_text(f"{team['time_spent']:.1f} วินาที", font_size=15, color=(148, 163, 184))
 
-            surface.blit(td1, (WIDTH // 2 - 320, row_y + 2))
-            surface.blit(td2, (WIDTH // 2 - 190, row_y + 2))
-            surface.blit(td3, (WIDTH // 2 + 40, row_y + 2))
-            surface.blit(td4, (WIDTH // 2 + 210, row_y + 2))
+            surface.blit(td1, (WIDTH // 2 - 320, row_y + 1))
+            surface.blit(td2, (WIDTH // 2 - 190, row_y + 1))
+            surface.blit(td3, (WIDTH // 2 + 40, row_y + 1))
+            surface.blit(td4, (WIDTH // 2 + 210, row_y + 1))
 
-        # Bottom Action Buttons
-        btn_replay = pygame.Rect(WIDTH // 2 - 200, HEIGHT - 70, 185, 48)
-        btn_menu = pygame.Rect(WIDTH // 2 + 15, HEIGHT - 70, 185, 48)
+        # Bottom Action Buttons (Safe Area: elevated above Windows Taskbar)
+        btn_y = HEIGHT - 105
+        btn_replay = pygame.Rect(WIDTH // 2 - 205, btn_y, 195, 46)
+        btn_menu = pygame.Rect(WIDTH // 2 + 10, btn_y, 195, 46)
 
         rep_hover = btn_replay.collidepoint(mouse_pos)
         men_hover = btn_menu.collidepoint(mouse_pos)
 
-        pygame.draw.rect(surface, ACCENT_AMBER if rep_hover else (217, 119, 6), btn_replay, border_radius=24)
-        t_rep = render_thai_text("แข่งอีกครั้ง", font_size=18, color=(15, 23, 42))
+        pygame.draw.rect(surface, ACCENT_AMBER if rep_hover else (217, 119, 6), btn_replay, border_radius=23)
+        t_rep = render_thai_text("แข่งอีกครั้ง [R]", font_size=17, color=(15, 23, 42))
         surface.blit(t_rep, t_rep.get_rect(center=btn_replay.center))
 
-        pygame.draw.rect(surface, (30, 41, 59) if not men_hover else (51, 65, 85), btn_menu, border_radius=24)
-        pygame.draw.rect(surface, CARD_BORDER, btn_menu, width=1, border_radius=24)
-        t_men = render_thai_text("กลับหน้าหลัก", font_size=18, color=TEXT_WHITE)
+        pygame.draw.rect(surface, (30, 41, 59) if not men_hover else (51, 65, 85), btn_menu, border_radius=23)
+        pygame.draw.rect(surface, CARD_BORDER, btn_menu, width=1, border_radius=23)
+        t_men = render_thai_text("กลับหน้าหลัก [ESC]", font_size=17, color=TEXT_WHITE)
         surface.blit(t_men, t_men.get_rect(center=btn_menu.center))
 
         if clicked:
