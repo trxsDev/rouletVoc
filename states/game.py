@@ -167,13 +167,13 @@ class GestureMemoryGame:
                 self.cards.append(Card(x, y, card_w, card_h, chosen_items[idx], idx))
                 idx += 1
 
-    def update(self, mouse_clicked=False):
+    def update(self, mouse_clicked=False, mouse_pos=None):
         now = time.time()
         elapsed = now - self.state_timer
         
         # QA Debug Mouse control override (Allows offline testing without camera)
         if self.debug_mouse_mode:
-            self.tracking_engine.cursor_pos = list(pygame.mouse.get_pos())
+            self.tracking_engine.cursor_pos = list(mouse_pos if mouse_pos is not None else pygame.mouse.get_pos())
             if pygame.mouse.get_pressed()[0]:
                 req_g = self.selected_gesture["id"] if hasattr(self, "selected_gesture") and self.selected_gesture else "OK"
                 if req_g == "PINCH":
@@ -339,7 +339,7 @@ class GestureMemoryGame:
                 self.state = "ROUND_END"
                 self.state_timer = time.time()
 
-    def draw(self, screen, bg_cam=None, mouse_clicked=False):
+    def draw(self, screen, bg_cam=None, mouse_clicked=False, mouse_pos=None):
         screen.fill(BG_COLOR)
         
         # During COUNTDOWN: Hide camera feed completely to prevent pre-position cheating!
@@ -363,7 +363,8 @@ class GestureMemoryGame:
                 on_switch_cam_cb=self.tracking_engine.switch_camera,
                 on_next_cb=lambda: (setattr(self, "state", "SETUP_WIFI"), self.check_wifi_connection()),
                 bg_cam=bg_cam,
-                mouse_clicked=mouse_clicked
+                mouse_clicked=mouse_clicked,
+                mouse_pos=mouse_pos
             )
             return
 
@@ -375,7 +376,8 @@ class GestureMemoryGame:
                 on_recheck_cb=self.check_wifi_connection,
                 on_back_cb=lambda: setattr(self, "state", "SETUP_CAMERA"),
                 on_next_cb=lambda: setattr(self, "state", "LANDING_MENU"),
-                mouse_clicked=mouse_clicked
+                mouse_clicked=mouse_clicked,
+                mouse_pos=mouse_pos
             )
             return
 
@@ -385,7 +387,8 @@ class GestureMemoryGame:
                 screen,
                 on_freedom_click=self.start_freedom_mode,
                 on_tournament_click=lambda: setattr(self, "state", "TEAM_SETUP"),
-                mouse_clicked=mouse_clicked
+                mouse_clicked=mouse_clicked,
+                mouse_pos=mouse_pos
             )
             return
 
@@ -403,7 +406,8 @@ class GestureMemoryGame:
                 on_words_change=change_words,
                 on_start_click=self.start_team_tournament,
                 on_back_click=lambda: setattr(self, "state", "LANDING_MENU"),
-                mouse_clicked=mouse_clicked
+                mouse_clicked=mouse_clicked,
+                mouse_pos=mouse_pos
             )
             return
 
@@ -427,7 +431,8 @@ class GestureMemoryGame:
                 self.team_scores,
                 on_replay_click=lambda: setattr(self, "state", "TEAM_SETUP"),
                 on_menu_click=lambda: setattr(self, "state", "LANDING_MENU"),
-                mouse_clicked=mouse_clicked
+                mouse_clicked=mouse_clicked,
+                mouse_pos=mouse_pos
             )
             return
 
@@ -439,9 +444,11 @@ class GestureMemoryGame:
             self.team_scores,
             self.current_team_idx,
             self.words_per_team,
-            self.chances_left
+            self.chances_left,
+            mouse_pos=mouse_pos
         )
-        if (mouse_clicked or pygame.mouse.get_pressed()[0]) and menu_btn.collidepoint(pygame.mouse.get_pos()):
+        cur_mpos = mouse_pos if mouse_pos is not None else pygame.mouse.get_pos()
+        if (mouse_clicked or pygame.mouse.get_pressed()[0]) and menu_btn.collidepoint(cur_mpos):
             self.state = "LANDING_MENU"
             return
 

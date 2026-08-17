@@ -1,0 +1,19 @@
+{
+    "screen_width": 2560,
+    "screen_height": 1664,
+    "work_width": 2560,
+    "work_height": 1664,
+    "dpi_scale": 1.0,
+    "display_mode": "borderless_fullscreen",
+    "virtual_width": 1080,
+    "virtual_height": 720,
+    "scale_factor": 2.3111,
+    "viewport": {
+        "x": 32,
+        "y": 0,
+        "width": 2495,
+        "height": 1663
+    },
+    "safe_margin_x": 32,
+    "safe_margin_y": 0
+}

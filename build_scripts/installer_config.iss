@@ -36,4 +36,7 @@ Name: "{autodesktop}\RouletVoc"; Filename: "{app}\RouletVoc.exe"; IconFilename: 
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Run]
+; Silent hardware screen resolution & safe-margin calibration on install
+Filename: "{app}\RouletVoc.exe"; Parameters: "--calibrate"; Flags: runhidden
+; User launch shortcut
 Filename: "{app}\RouletVoc.exe"; Description: "{cm:LaunchProgram,RouletVoc}"; Flags: nowait postinstall skipifsilent

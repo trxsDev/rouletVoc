@@ -7,7 +7,7 @@ from ui.renderer import render_thai_text
 
 class HUD:
     @staticmethod
-    def draw_in_game_header(surface, mode, freedom_score, team_scores, current_team_idx, words_per_team, chances_left):
+    def draw_in_game_header(surface, mode, freedom_score, team_scores, current_team_idx, words_per_team, chances_left, mouse_pos=None):
         hud_h = 74
         header_surf = pygame.Surface((WIDTH, hud_h), pygame.SRCALPHA)
         header_surf.fill((15, 23, 42, 235))
@@ -16,7 +16,8 @@ class HUD:
         
         # Menu Button
         menu_btn = pygame.Rect(18, 14, 110, 46)
-        m_hover = menu_btn.collidepoint(pygame.mouse.get_pos())
+        m_pos = mouse_pos if mouse_pos is not None else pygame.mouse.get_pos()
+        m_hover = menu_btn.collidepoint(m_pos)
         pygame.draw.rect(surface, (30, 41, 59) if not m_hover else (51, 65, 85), menu_btn, border_radius=16)
         pygame.draw.rect(surface, CARD_BORDER, menu_btn, width=1, border_radius=16)
         m_text = render_thai_text("เมนูหลัก", font_size=18, color=TEXT_WHITE)
