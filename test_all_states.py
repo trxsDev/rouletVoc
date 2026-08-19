@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Full pygame initialization resolves dependency circular imports
 pygame.init()
-screen = pygame.display.set_mode((1080, 720))
+screen = pygame.display.set_mode((1920, 1080))
 
 import unittest
 from unittest.mock import MagicMock
@@ -91,7 +91,64 @@ class TestGameTransitions(unittest.TestCase):
         self.game.update()
         self.game.draw(screen)
 
-        print("[Test] All state transitions completed without exceptions!")
+        # ----------------------------------------------------
+        # Test Review Mode (Freedom & Flashcard)
+        # ----------------------------------------------------
+        # 1. Review Mode Select
+        self.game.start_review_mode_select()
+        self.assertEqual(self.game.state, "REVIEW_MODE_SELECT")
+        self.game.update()
+        self.game.draw(screen)
+
+        # 2. Start Freedom Review
+        self.game.start_review_submode("FREEDOM")
+        self.assertEqual(self.game.state, "REVIEW_WHEEL")
+        self.assertEqual(len(self.game.review_deck), 12)
+        self.game.update()
+        self.game.draw(screen)
+
+        # 3. Spin Review Wheel
+        self.game.spin_review_wheel()
+        self.assertTrue(self.game.review_wheel.is_spinning)
+        self.assertIsNotNone(self.game.review_target_item)
+        
+        # Simulate Wheel Stop
+        self.game.review_wheel.is_spinning = False
+        self.game.state_timer = time.time() - 3.0
+        self.game.update()
+        self.assertEqual(self.game.state, "REVIEW_RESULT")
+        self.game.draw(screen)
+
+        # 4. Start Flashcard Review
+        self.game.start_review_submode("FLASHCARD")
+        self.assertEqual(self.game.state, "REVIEW_WHEEL")
+        self.assertEqual(len(self.game.review_deck), 12)
+
+        # Spin and transition to REVIEW_RESULT
+        self.game.spin_review_wheel()
+        self.game.review_wheel.is_spinning = False
+        self.game.state_timer = time.time() - 3.0
+        self.game.update()
+        self.assertEqual(self.game.state, "REVIEW_RESULT")
+        self.game.draw(screen)
+
+        # Simulate user advancing to next word (deck decrements on advance)
+        if self.game.review_target_item in self.game.review_deck:
+            self.game.review_deck.remove(self.game.review_target_item)
+            self.game.review_completed_items.append(self.game.review_target_item)
+        self.assertEqual(len(self.game.review_deck), 11)
+        self.assertEqual(len(self.game.review_completed_items), 1)
+
+        # Simulate Flashcard complete -> Congrats stage with Fireworks
+        self.game.review_deck = []
+        self.game.review_completed_items = list(self.game.review_completed_items)
+        self.game.state = "REVIEW_CONGRATS"
+        self.game.fireworks.trigger_burst()
+        self.game.update()
+        self.game.draw(screen)
+        self.assertGreater(len(self.game.fireworks.particles), 0)
+
+        print("[Test] All state transitions and Review mode tests completed without exceptions!")
 
 if __name__ == "__main__":
     unittest.main()

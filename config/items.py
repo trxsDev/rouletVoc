@@ -41,12 +41,12 @@ GESTURE_MODES = [
 # ---------------------------------------------------------
 ITEMS_POOL = [
     {
-        "id": "backpack",
+        "id": "bag",
         "word": "กระเป๋า",
-        "en": "Backpack",
+        "en": "Bag",
         "filename": "backpack.png",
         "color": (96, 165, 250),
-        "aliases": ["backpack", "back pack", "pack", "bag", "backbag", "beck peck", "แบ็คแพ็ค", "แบ็คแพ็ก", "แบ็กแพ็ก", "กระเป๋า", "กระเป๋าเป้", "เป้"]
+        "aliases": ["bag", "bags", "backpack", "back pack", "pack", "แบ็ก", "แบก", "แบค", "แบ็ค", "กระเป๋า", "กระเป๋าเป้", "เป้"]
     },
     {
         "id": "book",

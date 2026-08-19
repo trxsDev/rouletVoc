@@ -43,7 +43,7 @@ def main():
 
     pygame.display.init()
     screen = display_manager.create_display()
-    virtual_surface = pygame.Surface((WIDTH, HEIGHT))
+    virtual_surface = pygame.Surface((WIDTH, HEIGHT), depth=24)
     pygame.display.set_caption("RouletVoc • AR Hand Gesture & Voice Vocabulary Game")
     clock = pygame.time.Clock()
 
@@ -74,8 +74,10 @@ def main():
                 elif event.key == pygame.K_ESCAPE:
                     if game.state == "LANDING_MENU":
                         running = False
-                    elif game.state == "PODIUM_DASHBOARD":
+                    elif game.state in ["PODIUM_DASHBOARD", "REVIEW_MODE_SELECT", "REVIEW_CONGRATS"]:
                         game.state = "LANDING_MENU"
+                    elif game.state in ["REVIEW_WHEEL", "REVIEW_RESULT"]:
+                        game.state = "REVIEW_MODE_SELECT"
                     else:
                         game.state = "LANDING_MENU"
                 elif event.key == pygame.K_m:
@@ -95,12 +97,35 @@ def main():
                         game.words_per_team += 1
                     elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
                         game.start_team_tournament()
+                elif game.state == "REVIEW_WHEEL":
+                    if event.key in [pygame.K_SPACE, pygame.K_RETURN] and not game.review_wheel.is_spinning:
+                        game.spin_review_wheel()
+                elif game.state == "REVIEW_RESULT":
+                    if event.key == pygame.K_r and game.review_target_item:
+                        from core.audio_engine import sound_engine
+                        sound_engine.play_vocab(game.review_target_item["id"])
+                    elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                        if game.review_submode == "FLASHCARD" and len(game.review_deck) == 0:
+                            from core.audio_engine import sound_engine
+                            sound_engine.play("podium_fanfare")
+                            game.fireworks.clear()
+                            game.fireworks.trigger_burst()
+                            game.state = "REVIEW_CONGRATS"
+                        else:
+                            game.spin_review_wheel()
+                elif game.state == "REVIEW_CONGRATS":
+                    if event.key in [pygame.K_r, pygame.K_SPACE, pygame.K_RETURN]:
+                        game.start_review_submode("FLASHCARD")
 
         # Transform physical screen mouse coordinates to virtual 1080x720 canvas coordinates
         phys_mouse_pos = pygame.mouse.get_pos()
         v_mouse_pos = display_manager.screen_to_virtual_coords(phys_mouse_pos)
 
-        is_gameplay_active = game.state not in ["SETUP_CAMERA", "SETUP_WIFI", "LANDING_MENU", "TEAM_SETUP", "PODIUM_DASHBOARD"]
+        is_gameplay_active = game.state not in [
+            "SETUP_CAMERA", "SETUP_WIFI", "LANDING_MENU", "TEAM_SETUP", 
+            "PODIUM_DASHBOARD", "REVIEW_MODE_SELECT", "REVIEW_WHEEL", 
+            "REVIEW_RESULT", "REVIEW_CONGRATS"
+        ]
         bg_cam = game.tracking_engine.process_frame(is_gameplay_active=is_gameplay_active)
         
         game.update(mouse_clicked, mouse_pos=v_mouse_pos)

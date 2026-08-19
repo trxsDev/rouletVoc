@@ -58,7 +58,11 @@ def render_thai_text(text, font_size=24, color=(255, 255, 255)):
     draw.text((8 - bbox[0], 8 - bbox[1]), text, font=font, fill=(color[0], color[1], color[2], 255))
     
     raw = img.tobytes("raw", "RGBA")
-    surf = pygame.image.fromstring(raw, img.size, "RGBA")
+    surf = pygame.image.frombuffer(raw, img.size, "RGBA")
+    try:
+        surf = surf.convert_alpha()
+    except Exception:
+        pass
     
     if len(_text_surface_cache) > 600:
         _text_surface_cache.clear()
@@ -98,7 +102,11 @@ def get_image(filename, target_size=None):
                 if target_size:
                     pil_img = pil_img.resize(target_size, Image.Resampling.LANCZOS)
                 raw_data = pil_img.tobytes("raw", "RGBA")
-                surf = pygame.image.fromstring(raw_data, pil_img.size, "RGBA")
+                surf = pygame.image.frombuffer(raw_data, pil_img.size, "RGBA")
+                try:
+                    surf = surf.convert_alpha()
+                except Exception:
+                    pass
                 _image_cache[key] = surf
                 return surf
             except Exception as e:

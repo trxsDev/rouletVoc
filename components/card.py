@@ -51,32 +51,32 @@ class Card:
             bg_col = (15, 23, 42, 245)
             border_color = ACCENT_AMBER
             
-        pygame.draw.rect(card_surf, bg_col, (0, 0, self.rect.width, self.rect.height), border_radius=18)
-        border_w = 5 if self.action_charge > 0.1 else 3
-        pygame.draw.rect(card_surf, border_color, (0, 0, self.rect.width, self.rect.height), width=border_w, border_radius=18)
+        pygame.draw.rect(card_surf, bg_col, (0, 0, self.rect.width, self.rect.height), border_radius=24)
+        border_w = 6 if self.action_charge > 0.1 else 4
+        pygame.draw.rect(card_surf, border_color, (0, 0, self.rect.width, self.rect.height), width=border_w, border_radius=24)
         
         surface.blit(card_surf, (draw_x, draw_y))
         
         if show_face or self.is_flipped or self.is_matched:
-            img_surf = get_image(self.item["filename"], target_size=(105, 105))
-            img_rect = img_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery - 26))
+            img_surf = get_image(self.item["filename"], target_size=(150, 150))
+            img_rect = img_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery - 36))
             surface.blit(img_surf, img_rect)
             
-            text_surf = render_thai_text(self.item["word"], font_size=24, color=self.item["color"])
-            surface.blit(text_surf, text_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery + 45)))
+            text_surf = render_thai_text(self.item["word"], font_size=32, color=self.item["color"])
+            surface.blit(text_surf, text_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery + 60)))
             
-            en_surf = render_thai_text(self.item["en"], font_size=15, color=(148, 163, 184))
-            surface.blit(en_surf, en_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery + 70)))
+            en_surf = render_thai_text(self.item["en"], font_size=20, color=(148, 163, 184))
+            surface.blit(en_surf, en_surf.get_rect(center=(draw_rect.centerx, draw_rect.centery + 96)))
         else:
-            pattern_surf = render_thai_text("?", font_size=52, color=(100, 116, 139))
+            pattern_surf = render_thai_text("?", font_size=76, color=(100, 116, 139))
             surface.blit(pattern_surf, pattern_surf.get_rect(center=draw_rect.center))
             
             if self.action_charge > 0.05:
                 bar_w = int(draw_rect.width * 0.85 * self.action_charge)
-                bar_rect = pygame.Rect(draw_rect.x + int(draw_rect.width * 0.075), draw_rect.bottom - 20, bar_w, 8)
-                pygame.draw.rect(surface, ACCENT_EMERALD, bar_rect, border_radius=4)
-                pygame.draw.rect(surface, (255, 255, 255), bar_rect, width=1, border_radius=4)
+                bar_rect = pygame.Rect(draw_rect.x + int(draw_rect.width * 0.075), draw_rect.bottom - 28, bar_w, 12)
+                pygame.draw.rect(surface, ACCENT_EMERALD, bar_rect, border_radius=6)
+                pygame.draw.rect(surface, (255, 255, 255), bar_rect, width=2, border_radius=6)
             elif self.hover_progress > 0.05:
                 bar_w = int(draw_rect.width * 0.8 * self.hover_progress)
-                bar_rect = pygame.Rect(draw_rect.x + int(draw_rect.width * 0.1), draw_rect.bottom - 16, bar_w, 6)
-                pygame.draw.rect(surface, ACCENT_CYAN, bar_rect, border_radius=3)
+                bar_rect = pygame.Rect(draw_rect.x + int(draw_rect.width * 0.1), draw_rect.bottom - 24, bar_w, 8)
+                pygame.draw.rect(surface, ACCENT_CYAN, bar_rect, border_radius=4)

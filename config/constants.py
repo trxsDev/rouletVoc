@@ -17,10 +17,15 @@ MODEL_PATH = os.path.join(BASE_DIR, "hand_landmarker.task")
 MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 
 # ---------------------------------------------------------
-# Display Dimensions & FPS
+# Display Dimensions & FPS (1080p Ultra-Sharp Virtual Canvas)
 # ---------------------------------------------------------
-WIDTH, HEIGHT = 1080, 720
+WIDTH, HEIGHT = 1920, 1080
 FPS = 60
+
+# macOS Safe Area Insets (Prevents overlap with macOS Dock & Menu Bar)
+SAFE_INSET_TOP = 40
+SAFE_INSET_BOTTOM = 80
+SAFE_INSET_X = 60
 
 # ---------------------------------------------------------
 # Color Palette (TRXS Sleek Dark Theme)

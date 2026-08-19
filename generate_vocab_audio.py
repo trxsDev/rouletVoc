@@ -5,7 +5,7 @@ AUDIO_DIR = os.path.join(os.path.dirname(__file__), "assets", "audio")
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
 ITEMS = [
-    "backpack", "book", "chair", "clock", "eraser", "fan",
+    "bag", "book", "chair", "clock", "eraser", "fan",
     "notebook", "pen", "pencil", "ruler", "table", "window"
 ]
 

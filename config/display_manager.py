@@ -9,9 +9,9 @@ import sys
 import json
 import pygame
 
-# Default Virtual Game Canvas Dimensions
-VIRTUAL_WIDTH = 1080
-VIRTUAL_HEIGHT = 720
+# Default Virtual Game Canvas Dimensions (1080p Full HD)
+VIRTUAL_WIDTH = 1920
+VIRTUAL_HEIGHT = 1080
 CONFIG_FILENAME = "display_config.json"
 
 def get_config_dir():
@@ -63,12 +63,33 @@ class DisplayManager:
         self.load_or_probe()
 
     def probe_hardware_display(self):
-        """Query physical screen resolution, work area (minus taskbar), and DPI from OS."""
+        """Query physical screen resolution, work area (minus taskbar/dock), and DPI from OS."""
         w, h = self.virtual_w, self.virtual_h
         work_w, work_h = w, h
         dpi_scale = 1.0
 
-        if sys.platform == "win32":
+        # Query desktop metrics from Pygame/SDL (Accurate logical coordinates on macOS/Linux/Windows)
+        try:
+            if not pygame.display.get_init():
+                pygame.display.init()
+            desktop_sizes = pygame.display.get_desktop_sizes()
+            if desktop_sizes and len(desktop_sizes) > 0:
+                w, h = desktop_sizes[0]
+                work_w, work_h = w, h
+            else:
+                info = pygame.display.Info()
+                if info.current_w > 0 and info.current_h > 0:
+                    w, h = info.current_w, info.current_h
+                    work_w, work_h = w, h
+        except Exception:
+            pass
+
+        if sys.platform == "darwin":
+            # macOS Safe Margin: Reserve space for Menu Bar (~36px) and Dock (~80px)
+            work_h = max(600, h - 116)
+            work_w = max(800, w - 40)
+
+        elif sys.platform == "win32":
             try:
                 import ctypes
                 user32 = ctypes.windll.user32
@@ -82,10 +103,6 @@ class DisplayManager:
                     except Exception:
                         pass
                 
-                # Query Full Screen Resolution
-                w = user32.GetSystemMetrics(0) # SM_CXSCREEN
-                h = user32.GetSystemMetrics(1) # SM_CYSCREEN
-                
                 # Query Work Area (Screen minus taskbar)
                 class RECT(ctypes.Structure):
                     _fields_ = [('left', ctypes.c_long),
@@ -94,14 +111,10 @@ class DisplayManager:
                                 ('bottom', ctypes.c_long)]
                 
                 rect = RECT()
-                # SPI_GETWORKAREA = 0x0030
                 if user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0):
                     work_w = rect.right - rect.left
                     work_h = rect.bottom - rect.top
-                else:
-                    work_w, work_h = w, h
                     
-                # Query DPI Scale
                 try:
                     dpi = user32.GetDpiForSystem()
                     dpi_scale = round(dpi / 96.0, 2)
@@ -109,35 +122,6 @@ class DisplayManager:
                     dpi_scale = 1.0
             except Exception as e:
                 print(f"[DisplayManager] Windows API probe exception: {e}")
-
-        elif sys.platform == "darwin": # macOS
-            try:
-                import subprocess
-                out = subprocess.check_output("system_profiler SPDisplaysDataType | grep Resolution", shell=True).decode()
-                parts = out.strip().split()
-                if len(parts) >= 4 and parts[1].isdigit() and parts[3].isdigit():
-                    w = int(parts[1])
-                    h = int(parts[3])
-                    work_w, work_h = w, h
-            except Exception:
-                pass
-
-        # Fallback to Pygame display query if available
-        if w <= 0 or h <= 0 or (w == self.virtual_w and h == self.virtual_h):
-            try:
-                if not pygame.display.get_init():
-                    pygame.display.init()
-                desktop_sizes = pygame.display.get_desktop_sizes()
-                if desktop_sizes and len(desktop_sizes) > 0:
-                    w, h = desktop_sizes[0]
-                    work_w, work_h = w, h
-                else:
-                    info = pygame.display.Info()
-                    if info.current_w > 0 and info.current_h > 0:
-                        w, h = info.current_w, info.current_h
-                        work_w, work_h = w, h
-            except Exception:
-                pass
 
         self.screen_w = max(w, 800)
         self.screen_h = max(h, 600)
@@ -149,11 +133,11 @@ class DisplayManager:
         return self.get_config_dict()
 
     def _calculate_viewport(self):
-        """Calculate aspect-ratio preserved viewport and letterbox/pillarbox margins."""
+        """Calculate aspect-ratio preserved viewport filling the display with internal safe UI margins."""
         target_w = self.screen_w
         target_h = self.screen_h
 
-        # Compute scaling factor to preserve virtual 1080x720 aspect ratio
+        # Compute scaling factor to preserve virtual 1080x720 aspect ratio filling the screen
         scale_x = target_w / self.virtual_w
         scale_y = target_h / self.virtual_h
         self.scale_factor = min(scale_x, scale_y)
@@ -161,7 +145,7 @@ class DisplayManager:
         render_w = int(self.virtual_w * self.scale_factor)
         render_h = int(self.virtual_h * self.scale_factor)
 
-        # Center in screen
+        # Center on the display screen
         offset_x = (target_w - render_w) // 2
         offset_y = (target_h - render_h) // 2
 
@@ -236,12 +220,19 @@ class DisplayManager:
             screen = pygame.display.set_mode((self.screen_w, self.screen_h), flags)
         elif self.display_mode == "fullscreen":
             flags |= pygame.FULLSCREEN
-            screen = pygame.display.set_mode((self.screen_w, self.screen_h), flags)
+            screen = pygame.display.set_mode((0, 0), flags)
         else: # Windowed mode with safe margins
             flags |= pygame.RESIZABLE
             win_w = min(self.virtual_w, self.work_w - 40)
             win_h = min(self.virtual_h, self.work_h - 40)
             screen = pygame.display.set_mode((win_w, win_h), flags)
+
+        # Synchronize actual allocated screen dimensions from SDL window
+        act_w, act_h = screen.get_size()
+        if act_w > 0 and act_h > 0:
+            self.screen_w = act_w
+            self.screen_h = act_h
+            self._calculate_viewport()
 
         return screen
 
